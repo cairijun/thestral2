@@ -4,6 +4,10 @@ import (
 	"context"
 	"io"
 	"net"
+	"strconv"
+	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -17,6 +21,17 @@ const (
 	ProxyCmdUnsupported  = 0x07
 	ProxyAddrUnsupported = 0x08
 )
+
+var currRequestID uint64
+
+func init() {
+	currRequestID = uint64(time.Now().Unix())
+}
+
+func GetNextRequestID() string {
+	id := atomic.AddUint64(&currRequestID, 1)
+	return strings.ToUpper(strconv.FormatUint(id, 36))
+}
 
 // ProxyError is a wrapper of a normal error along with a proxy error type code.
 type ProxyError struct {
@@ -37,6 +52,7 @@ type ProxyRequest interface {
 	TargetAddr() Address
 	Success(addr Address) io.ReadWriteCloser
 	Fail(err *ProxyError)
+	ID() string
 	Logger() *zap.SugaredLogger
 }
 

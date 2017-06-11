@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // PeerIdentifier uniquely identify a peer (a client or a server).
@@ -88,7 +89,13 @@ func CreateLogger(config LoggingConfig) (*zap.SugaredLogger, error) {
 		zapCfg.OutputPaths = []string{config.File}
 	}
 	if config.Format != "" {
-		zapCfg.Encoding = config.Format
+		if config.Format == "console_rich" {
+			zapCfg.Encoding = "console"
+			zapCfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+			zapCfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+		} else {
+			zapCfg.Encoding = config.Format
+		}
 	}
 	switch config.Level {
 	case "": // no-op

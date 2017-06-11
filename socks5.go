@@ -115,10 +115,15 @@ func (s *SOCKS5Server) Start() (<-chan ProxyRequest, error) {
 				break
 			}
 
-			cliLogger := s.log.With("addr", conn.RemoteAddr()).Named("client")
+			reqID := GetNextRequestID()
+			cliLogger := s.log.With(
+				"addr", conn.RemoteAddr(),
+				"reqID", reqID,
+			).Named("client")
 			cliLogger.Debugw(
 				"client connection accepted", "addr", conn.RemoteAddr())
-			req := &socks5Request{conn: conn, log: cliLogger}
+			req := &socks5Request{
+				id: GetNextRequestID(), conn: conn, log: cliLogger}
 
 			go s.handshake(req)
 		}
@@ -223,6 +228,7 @@ func (s *SOCKS5Server) authUser(cli *socks5Request) (user string, err error) {
 }
 
 type socks5Request struct {
+	id         string
 	log        *zap.SugaredLogger
 	conn       net.Conn
 	user       string
@@ -279,6 +285,11 @@ func (r *socks5Request) Fail(proxyErr *ProxyError) {
 // Logger returns a logger of this client.
 func (r *socks5Request) Logger() *zap.SugaredLogger {
 	return r.log
+}
+
+// ID returns the identifier of this client.
+func (r *socks5Request) ID() string {
+	return r.id
 }
 
 // SOCKS5Client is a ProxyClient using SOCKS5 protocol.
