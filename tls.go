@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"io/ioutil"
 	"net"
+	"runtime"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -31,8 +32,16 @@ func NewTLSTransport(config TLSConfig, inner Transport) (*TLSTransport, error) {
 	tc.Certificates = append(tc.Certificates, cert)
 
 	if len(config.CAs) == 0 {
-		if tc.RootCAs, err = x509.SystemCertPool(); err != nil {
-			return nil, errors.Wrap(err, "failed to load system CA pool")
+		if runtime.GOOS == "windows" {
+			if len(config.ExtraCAs) > 0 {
+				return nil, errors.New(
+					"currently adding extra CA(s) to " +
+						"system default CA pool is not supported on Windows")
+			}
+		} else {
+			if tc.RootCAs, err = x509.SystemCertPool(); err != nil {
+				return nil, errors.Wrap(err, "failed to load system CA pool")
+			}
 		}
 	} else {
 		tc.RootCAs = x509.NewCertPool()
