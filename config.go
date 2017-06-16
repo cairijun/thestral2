@@ -31,12 +31,13 @@ type TransportConfig struct {
 
 // TLSConfig contains the TLS configuration on some transport.
 type TLSConfig struct {
-	Cert         string   `yaml:"cert"`
-	Key          string   `yaml:"key"`
-	VerifyClient bool     `yaml:"verify_client"`
-	CAs          []string `yaml:"cas"`
-	ExtraCAs     []string `yaml:"extra_cas"`
-	ClientCAs    []string `yaml:"client_cas"`
+	Cert             string   `yaml:"cert"`
+	Key              string   `yaml:"key"`
+	VerifyClient     bool     `yaml:"verify_client"`
+	CAs              []string `yaml:"cas"`
+	ExtraCAs         []string `yaml:"extra_cas"`
+	ClientCAs        []string `yaml:"client_cas"`
+	HandshakeTimeout string   `yaml:"handshake_timeout"`
 }
 
 // KCPConfig contains configuration about the KCP protocol.
@@ -62,7 +63,15 @@ type LoggingConfig struct {
 
 // MiscConfig contains configuration that doesn't fall into any of above.
 type MiscConfig struct {
-	ConnectTimeout string `yaml:"connect_timeout"`
+	ConnectTimeout string             `yaml:"connect_timeout"`
+	DumpStats      *StatsDumperConfig `yaml:"dump_stats"`
+}
+
+// StatsDumperConfig contains configuration for dumping runtime statistics.
+type StatsDumperConfig struct {
+	File             string `yaml:"file"`
+	MemStatsInterval string `yaml:"mem_stats_interval"`
+	StackInterval    string `yaml:"stack_interval"`
 }
 
 // ParseConfigFile parses a given configuration file into a Config struct.

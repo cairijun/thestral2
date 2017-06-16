@@ -66,7 +66,7 @@ func (t *KCPTransport) Dial(
 		err  error
 	}
 
-	resultCh := make(chan result)
+	resultCh := make(chan result, 1)
 
 	go func() {
 		kcpConn, err := kcp.DialWithOptions(

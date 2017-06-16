@@ -10,14 +10,18 @@ import (
 	"net"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 )
 
+const defaultTLSHandshakeTimeout = time.Minute * 1
+
 // TLSTransport is a Transport for TLS protocol.
 type TLSTransport struct {
-	inner     Transport
-	tlsConfig tls.Config
+	inner            Transport
+	tlsConfig        tls.Config
+	handshakeTimeout time.Duration
 }
 
 // NewTLSTransport create a TLSTransport on top of a given inner Transport.
@@ -82,6 +86,19 @@ func NewTLSTransport(config TLSConfig, inner Transport) (*TLSTransport, error) {
 		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
 	}
 
+	if config.HandshakeTimeout != "" {
+		t, err := time.ParseDuration(config.HandshakeTimeout)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid handshake_timeout")
+		}
+		if t <= 0 {
+			return nil, errors.New("handshake_timeout should be > 0")
+		}
+		transport.handshakeTimeout = t
+	} else {
+		transport.handshakeTimeout = defaultTLSHandshakeTimeout
+	}
+
 	return transport, nil
 }
 
@@ -102,9 +119,14 @@ func (t *TLSTransport) Dial(
 	cfg.ServerName = host
 	tlsConn := tls.Client(inner, cfg)
 
-	resultCh := make(chan error)
+	// the channel must be buffered to prevent the hanshaking goroutine from
+	// blocking forever if the context is cancelled or timeout.
+	resultCh := make(chan error, 1)
 	go func() {
-		resultCh <- tlsConn.Handshake()
+		_ = tlsConn.SetDeadline(time.Now().Add(t.handshakeTimeout))
+		err := tlsConn.Handshake()
+		_ = tlsConn.SetDeadline(time.Time{})
+		resultCh <- err
 	}()
 
 	select {
@@ -113,7 +135,7 @@ func (t *TLSTransport) Dial(
 			// the conn still need to be wrapped to retrieve the peer identifier
 			_ = tlsConn.Close()
 		}
-		return wrapTLSConn(tlsConn), errors.WithStack(err)
+		return wrapTLSConn(tlsConn, t.handshakeTimeout), errors.WithStack(err)
 	case <-ctx.Done():
 		_ = tlsConn.Close()
 		return nil, errors.WithStack(ctx.Err())
@@ -126,12 +148,14 @@ func (t *TLSTransport) Listen(address string) (net.Listener, error) {
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to accept client")
 	}
-	return &tlsListener{innerListener, t.tlsConfig.Clone()}, nil
+	return &tlsListener{
+		innerListener, t.tlsConfig.Clone(), t.handshakeTimeout}, nil
 }
 
 type tlsListener struct {
 	net.Listener
-	config *tls.Config
+	config           *tls.Config
+	handshakeTimeout time.Duration
 }
 
 func (l *tlsListener) Accept() (net.Conn, error) {
@@ -140,19 +164,19 @@ func (l *tlsListener) Accept() (net.Conn, error) {
 		return nil, err
 	}
 	tlsConn := tls.Server(conn, l.config)
-	return wrapTLSConn(tlsConn), err
+	return wrapTLSConn(tlsConn, l.handshakeTimeout), err
 }
 
 type tlsConnWrapper struct {
 	*tls.Conn
-	inited sync.Once
-	peerID *PeerIdentifier
+	inited           sync.Once
+	peerID           *PeerIdentifier
+	handshakeTimeout time.Duration
 }
 
-func wrapTLSConn(conn *tls.Conn) *tlsConnWrapper {
-	wrapped := new(tlsConnWrapper)
-	wrapped.Conn = conn
-	return wrapped
+func wrapTLSConn(
+	conn *tls.Conn, handshakeTimeout time.Duration) *tlsConnWrapper {
+	return &tlsConnWrapper{Conn: conn, handshakeTimeout: handshakeTimeout}
 }
 
 func (c *tlsConnWrapper) GetPeerIdentifiers() ([]*PeerIdentifier, error) {
@@ -160,7 +184,9 @@ func (c *tlsConnWrapper) GetPeerIdentifiers() ([]*PeerIdentifier, error) {
 	c.inited.Do(func() {
 		state := c.ConnectionState()
 		if !state.HandshakeComplete {
+			_ = c.SetDeadline(time.Now().Add(c.handshakeTimeout))
 			err = c.Handshake()
+			_ = c.SetDeadline(time.Time{})
 			state = c.ConnectionState()
 		}
 		c.peerID = makePeerIdentifier(state)

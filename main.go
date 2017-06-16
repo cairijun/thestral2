@@ -17,6 +17,10 @@ func main() {
 		panic(err)
 	}
 
+	if config.Misc.DumpStats != nil {
+		go RunStatsDumper(*config.Misc.DumpStats)
+	}
+
 	app, err := NewThestralApp(*config)
 	if err != nil {
 		panic(err)

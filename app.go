@@ -218,6 +218,7 @@ func (t *Thestral) doRelay(
 
 	relayCtx, cancelFunc := context.WithCancel(ctx)
 	relay := func(dst, src io.ReadWriteCloser, dstName, srcName string) {
+		defer cancelFunc()
 		n, err := io.Copy(dst, src)
 		if err == nil { // src closed
 			req.Logger().Infow(
@@ -230,7 +231,6 @@ func (t *Thestral) doRelay(
 				"error occurred",
 				"error", err, "src", srcName, "bytes_transferred", n)
 		}
-		cancelFunc()
 	}
 
 	go relay(upConn, downRWC, "upstream", "downstream")

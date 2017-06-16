@@ -93,7 +93,7 @@ func newSOCKS5Server(
 
 // Start fires up the SOCKS5Server and returns a channel of client requests.
 func (s *SOCKS5Server) Start() (<-chan ProxyRequest, error) {
-	s.reqCh = make(chan ProxyRequest)
+	s.reqCh = make(chan ProxyRequest, 1)
 
 	var err error
 	if s.listener, err = s.transport.Listen(s.addr); err != nil {
@@ -333,7 +333,7 @@ func (c *SOCKS5Client) Request(
 	}
 
 	var boundAddr Address
-	errCh := make(chan *ProxyError)
+	errCh := make(chan *ProxyError, 1)
 	go func() {
 		bAddr, pErr := c.doRequest(conn, addr)
 		boundAddr = bAddr
