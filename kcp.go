@@ -161,7 +161,8 @@ func (c *kcpConnWrapper) Write(b []byte) (int, error) {
 		return 0, errors.New("send buffer size exceeds limitation")
 	}
 	n := uint32(len(b))
-	buf := make([]byte, n+5)
+	buf := GlobalBufPool.Get(uint(n + 5))
+	defer GlobalBufPool.Free(buf)
 	buf[0] = kcpDataPacket
 	binary.BigEndian.PutUint32(buf[1:5], n)
 	copy(buf[5:], b)

@@ -16,10 +16,6 @@ import (
 	"go.uber.org/zap"
 )
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 var packetTestCases = []struct {
 	packet socksPacket
 	newPkt socksPacket

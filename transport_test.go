@@ -38,10 +38,6 @@ var gTLSServerConfig = &TLSConfig{
 	ClientCAs:    []string{"test_files/ca.pem"},
 }
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 func TestDefault(t *testing.T) {
 	doTestWithTransConf(t, nil, nil)
 }

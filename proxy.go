@@ -28,6 +28,8 @@ func init() {
 	currRequestID = uint64(time.Now().Unix())
 }
 
+// GetNextRequestID generates a string that can be used as the ID
+// of a new ProxyRequest.
 func GetNextRequestID() string {
 	id := atomic.AddUint64(&currRequestID, 1)
 	return strings.ToUpper(strconv.FormatUint(id, 36))

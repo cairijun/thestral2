@@ -5,6 +5,7 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	"runtime"
 	"sync"
 	"time"
 
@@ -14,6 +15,11 @@ import (
 
 const (
 	defaultConnectTimeout = time.Minute * 1
+	relayBufferSize       = 32 * 1024
+	enableReadFrom        = runtime.GOOS != "darwin" &&
+		runtime.GOOS != "nacl" &&
+		runtime.GOOS != "netbsd" &&
+		runtime.GOOS != "openbsd"
 )
 
 // Thestral is the main thestral app.
@@ -23,7 +29,7 @@ type Thestral struct {
 	upstreams      map[string]ProxyClient
 	upstreamNames  []string
 	ruleMatcher    *RuleMatcher
-	rngPool        *sync.Pool
+	relayBufPool   *sync.Pool
 	connectTimeout time.Duration
 }
 
@@ -39,9 +45,9 @@ func NewThestralApp(config Config) (app *Thestral, err error) {
 	app = &Thestral{
 		downstreams: make(map[string]ProxyServer),
 		upstreams:   make(map[string]ProxyClient),
-		rngPool: &sync.Pool{
+		relayBufPool: &sync.Pool{
 			New: func() interface{} {
-				return rand.New(rand.NewSource(time.Now().UnixNano()))
+				return make([]byte, relayBufferSize)
 			},
 		},
 	}
@@ -186,9 +192,7 @@ func (t *Thestral) processOneRequest(ctx context.Context, req ProxyRequest) {
 		return
 	}
 	//TODO: the selection is not actually uniform, fix it
-	rng := t.rngPool.Get().(*rand.Rand)
-	selected := upstreams[rng.Intn(len(upstreams))]
-	t.rngPool.Put(rng)
+	selected := upstreams[rand.Intn(len(upstreams))]
 	req.Logger().Debugw(
 		"upstream selected",
 		"rule", ruleName, "upstream", selected, "addr", req.TargetAddr())
@@ -219,7 +223,7 @@ func (t *Thestral) doRelay(
 	relayCtx, cancelFunc := context.WithCancel(ctx)
 	relay := func(dst, src io.ReadWriteCloser, dstName, srcName string) {
 		defer cancelFunc()
-		n, err := io.Copy(dst, src)
+		n, err := t.relayHalf(dst, src)
 		if err == nil { // src closed
 			req.Logger().Infow(
 				"connection closed", "src", srcName, "bytes_transferred", n)
@@ -245,4 +249,40 @@ func (t *Thestral) doRelay(
 		req.Logger().Warnw(
 			"error occurred when closing downstream", "error", err)
 	}
+}
+
+func (t *Thestral) relayHalf(
+	dst io.Writer, src io.Reader) (n int64, err error) {
+	if wt, ok := src.(io.WriterTo); ok {
+		n, err = wt.WriteTo(dst)
+
+	} else if rt, ok := dst.(io.ReaderFrom); enableReadFrom && ok {
+		n, err = rt.ReadFrom(src)
+
+	} else {
+		buf := t.relayBufPool.Get().([]byte)
+		defer t.relayBufPool.Put(buf)
+		for {
+			var nr, nw int
+			if nr, err = src.Read(buf); err == nil { // data read from src
+				nw, err = dst.Write(buf[:nr])
+				n += int64(nw)
+				if err != nil { // write failed
+					break
+				}
+				if nw < nr {
+					err = io.ErrShortWrite
+					break
+				}
+			} else { // EOF or error occurred
+				if err == io.EOF { // ended
+					err = nil
+				}
+				break
+			}
+		}
+	}
+
+	err = errors.WithStack(err)
+	return
 }

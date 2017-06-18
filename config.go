@@ -63,15 +63,8 @@ type LoggingConfig struct {
 
 // MiscConfig contains configuration that doesn't fall into any of above.
 type MiscConfig struct {
-	ConnectTimeout string             `yaml:"connect_timeout"`
-	DumpStats      *StatsDumperConfig `yaml:"dump_stats"`
-}
-
-// StatsDumperConfig contains configuration for dumping runtime statistics.
-type StatsDumperConfig struct {
-	File             string `yaml:"file"`
-	MemStatsInterval string `yaml:"mem_stats_interval"`
-	StackInterval    string `yaml:"stack_interval"`
+	ConnectTimeout string `yaml:"connect_timeout"`
+	PProfAddr      string `yaml:"pprof_addr"`
 }
 
 // ParseConfigFile parses a given configuration file into a Config struct.

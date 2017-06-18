@@ -1,11 +1,8 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
+	"math/rand"
 	"net"
-	"os"
-	"runtime"
 	"strconv"
 	"time"
 
@@ -13,6 +10,10 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 // PeerIdentifier uniquely identify a peer (a client or a server).
 // It may be provided along with a connection or something else.
@@ -121,73 +122,4 @@ func CreateLogger(config LoggingConfig) (*zap.SugaredLogger, error) {
 		return nil, err
 	}
 	return logger.Sugar(), nil
-}
-
-// RunStatsDumper runs the statistics dumper with the given configuration.
-func RunStatsDumper(config StatsDumperConfig) {
-	file, err := os.Create(config.File)
-	defer file.Close() // nolint: errcheck, staticcheck
-	if err != nil {
-		panic("failed to create stats dump file: " + err.Error())
-	}
-
-	memTicker := time.Tick(parseInterval(config.MemStatsInterval))
-	stackTicker := time.Tick(parseInterval(config.StackInterval))
-	var stackBuf [2 << 20]byte
-	for {
-		select {
-		case t := <-memTicker:
-			rawStats := runtime.MemStats{}
-			runtime.ReadMemStats(&rawStats)
-			memStats := memStats{
-				NumGoroutine: runtime.NumGoroutine(),
-				HeapAlloc:    rawStats.HeapAlloc,
-				StackSys:     rawStats.StackSys,
-				HeapObjects:  rawStats.HeapObjects,
-				LiveObjects:  rawStats.Mallocs - rawStats.Frees,
-				BySize:       make(map[uint32]uint64),
-			}
-			for _, bin := range rawStats.BySize {
-				n := bin.Mallocs - bin.Frees
-				if n > 0 {
-					memStats.BySize[bin.Size] = n
-				}
-			}
-			_, _ = fmt.Fprintf(file, "%s\tMemStats:\n", t.Format(time.RFC3339))
-			data, err := json.Marshal(memStats)
-			if err != nil {
-				_, _ = file.WriteString(err.Error())
-			} else {
-				_, _ = file.Write(data)
-			}
-		case t := <-stackTicker:
-			n := runtime.Stack(stackBuf[:], true)
-			_, _ = fmt.Fprintf(file, "%s\tStack:\n", t.Format(time.RFC3339))
-			_, _ = file.Write(stackBuf[:n])
-		}
-		_, _ = file.WriteString("\n========================================\n")
-	}
-}
-
-type memStats struct {
-	NumGoroutine int
-	HeapAlloc    uint64
-	StackSys     uint64
-	HeapObjects  uint64
-	LiveObjects  uint64
-	BySize       map[uint32]uint64
-}
-
-func parseInterval(s string) time.Duration {
-	if s == "" {
-		return 0
-	}
-	d, err := time.ParseDuration(s)
-	if err != nil {
-		panic("invalid interval: " + err.Error())
-	}
-	if d < 0 {
-		panic("interval must be greater than or equal to zero")
-	}
-	return d
 }

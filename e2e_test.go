@@ -11,10 +11,6 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 type E2ETestSuite struct {
 	suite.Suite
 
