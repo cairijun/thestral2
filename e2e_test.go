@@ -111,6 +111,7 @@ func (s *E2ETestSuite) SetupTest() {
 	go func() {
 		s.Assert().NoError(s.locApp.Run(s.appCtx))
 	}()
+	time.Sleep(time.Millisecond * 100) // ensure the servers are started
 
 	s.cli, err = CreateProxyClient(s.locConfig.Downstreams["local"])
 	s.Require().NoError(err)
