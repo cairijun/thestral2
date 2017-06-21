@@ -11,6 +11,8 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+var ThestralVersion = "UNKNOWN"
+
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }

@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"os"
 
 	"net/http"
 	_ "net/http/pprof"
@@ -10,7 +12,13 @@ import (
 
 func main() {
 	configFile := flag.String("c", "", "configuration file")
+	printVersion := flag.Bool("v", false, "print version")
 	flag.Parse()
+
+	if *printVersion {
+		fmt.Printf("%s version: %s\n", os.Args[0], ThestralVersion)
+		os.Exit(0)
+	}
 	if *configFile == "" {
 		panic("a configuration file must be specified")
 	}
