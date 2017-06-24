@@ -319,8 +319,8 @@ func NewSOCKS5Client(config ProxyConfig) (*SOCKS5Client, error) {
 }
 
 // Request send a connection request to the proxy server.
-func (c *SOCKS5Client) Request(
-	ctx context.Context, addr Address) (net.Conn, Address, *ProxyError) {
+func (c *SOCKS5Client) Request(ctx context.Context, addr Address) (
+	io.ReadWriteCloser, Address, *ProxyError) {
 	conn, err := c.Transport.Dial(ctx, c.Addr)
 	if err != nil {
 		return nil, nil, wrapAsProxyError(

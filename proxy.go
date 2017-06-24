@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"io"
-	"net"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -66,16 +65,16 @@ type ProxyServer interface {
 
 // ProxyClient is the client of some proxy protocol.
 type ProxyClient interface {
-	Request(ctx context.Context, addr Address) (net.Conn, Address, *ProxyError)
+	Request(ctx context.Context, addr Address) (
+		io.ReadWriteCloser, Address, *ProxyError)
 }
 
 // DirectTCPClient is a ProxyClient without any proxy protocol.
 type DirectTCPClient struct{}
 
 // Request establishes a direct connection to the given address.
-func (DirectTCPClient) Request(
-	ctx context.Context, addr Address) (
-	conn net.Conn, boundAddr Address, pErr *ProxyError) {
+func (DirectTCPClient) Request(ctx context.Context, addr Address) (
+	io.ReadWriteCloser, Address, *ProxyError) {
 	var reqAddr string
 	switch a := addr.(type) {
 	case *TCP4Addr:
@@ -90,13 +89,13 @@ func (DirectTCPClient) Request(
 			ProxyAddrUnsupported)
 	}
 
-	var err error
-	conn, err = TCPTransport{}.Dial(ctx, reqAddr)
+	conn, err := TCPTransport{}.Dial(ctx, reqAddr)
+	var boundAddr Address
 	if err == nil {
 		boundAddr, err = FromNetAddr(conn.LocalAddr())
 	}
-	pErr = wrapAsProxyError(errors.WithStack(err), ProxyConnectFailed)
-	return
+	pErr := wrapAsProxyError(errors.WithStack(err), ProxyConnectFailed)
+	return conn, boundAddr, pErr
 }
 
 // CreateProxyServer creates a ProxyServer from the given configuration.
@@ -125,6 +124,23 @@ func CreateProxyClient(config ProxyConfig) (ProxyClient, error) {
 				"'direct' protocol should not have any extra setting")
 		}
 		return DirectTCPClient{}, nil
+
+	case "http":
+		if config.Transport != nil {
+			return nil, errors.New(
+				"'http' protocol should not have any transport setting")
+		}
+		addr, ok := config.Settings["address"]
+		if !ok || len(config.Settings) != 1 {
+			return nil, errors.New(
+				"'http' protocol should have one and only one" +
+					" extra setting 'address'")
+		}
+		if addrStr, ok := addr.(string); ok {
+			return HTTPTunnelClient{addrStr}, nil
+		} else {
+			return nil, errors.New("a valid 'address' must be supplied")
+		}
 
 	case "socks5":
 		return NewSOCKS5Client(config)

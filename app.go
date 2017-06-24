@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"math/rand"
-	"net"
 	"runtime"
 	"sync"
 	"time"
@@ -213,7 +212,8 @@ func (t *Thestral) processOneRequest(ctx context.Context, req ProxyRequest) {
 }
 
 func (t *Thestral) doRelay(
-	ctx context.Context, req ProxyRequest, boundAddr Address, upConn net.Conn) {
+	ctx context.Context, req ProxyRequest,
+	boundAddr Address, upRWC io.ReadWriteCloser) {
 	// notify the downstream
 	req.Logger().Infow(
 		"connection established",
@@ -237,11 +237,11 @@ func (t *Thestral) doRelay(
 		}
 	}
 
-	go relay(upConn, downRWC, "upstream", "downstream")
-	go relay(downRWC, upConn, "downstream", "upstream")
+	go relay(upRWC, downRWC, "upstream", "downstream")
+	go relay(downRWC, upRWC, "downstream", "upstream")
 
 	<-relayCtx.Done() // block until done/canceled
-	if err := upConn.Close(); err != nil {
+	if err := upRWC.Close(); err != nil {
 		req.Logger().Warnw(
 			"error occurred when closing upstream", "error", err)
 	}
