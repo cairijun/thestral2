@@ -38,7 +38,7 @@ var gTLSServerConfig = &TLSConfig{
 	ClientCAs:    []string{"test_files/ca.pem"},
 }
 
-func TestDefault(t *testing.T) {
+func TestTransportDefault(t *testing.T) {
 	doTestWithTransConf(t, nil, nil)
 }
 

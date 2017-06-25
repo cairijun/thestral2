@@ -52,7 +52,7 @@ func (s *E2ETestSuite) SetupSuite() {
 			},
 			Settings: map[string]interface{}{"address": s.svrAddr, "simplified": true},
 		}},
-		Logging: LoggingConfig{Level: "warn"},
+		Logging: LoggingConfig{Level: "fatal"},
 	}
 	s.svrConfig = &Config{
 		Downstreams: map[string]ProxyConfig{"proxy": {
@@ -73,7 +73,7 @@ func (s *E2ETestSuite) SetupSuite() {
 		Rules: map[string]RuleConfig{
 			"reject": {Domains: []string{"will.be.rejected"}},
 		},
-		Logging: LoggingConfig{Level: "warn"},
+		Logging: LoggingConfig{Level: "fatal"},
 	}
 
 	tgtAddr, err := net.ResolveTCPAddr("tcp", "localhost:0")

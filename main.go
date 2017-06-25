@@ -16,7 +16,8 @@ func main() {
 	flag.Parse()
 
 	if *printVersion {
-		fmt.Printf("%s version: %s\n", os.Args[0], ThestralVersion)
+		fmt.Printf("%s\nVersion: %s\nBuilt on: %s\n",
+			os.Args[0], ThestralVersion, ThestralBuiltTime)
 		os.Exit(0)
 	}
 	if *configFile == "" {
@@ -35,9 +36,9 @@ func main() {
 
 	if config.Misc.PProfAddr != "" {
 		go func() {
-			err := http.ListenAndServe(config.Misc.PProfAddr, nil)
-			if err != nil {
-				panic(err)
+			e := http.ListenAndServe(config.Misc.PProfAddr, nil)
+			if e != nil {
+				panic(e)
 			}
 		}()
 	}

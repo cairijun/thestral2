@@ -138,9 +138,8 @@ func CreateProxyClient(config ProxyConfig) (ProxyClient, error) {
 		}
 		if addrStr, ok := addr.(string); ok {
 			return HTTPTunnelClient{addrStr}, nil
-		} else {
-			return nil, errors.New("a valid 'address' must be supplied")
 		}
+		return nil, errors.New("a valid 'address' must be supplied")
 
 	case "socks5":
 		return NewSOCKS5Client(config)

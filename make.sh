@@ -21,10 +21,18 @@ if [[ $? != 0 ]]; then
     warn "failed to retrive version"
 else
     info "version: $VERSION"
+    EXT_VARS="-X \"main.ThestralVersion=$VERSION\""
 fi
 
-if [[ "$VERSION" != "" ]]; then
-    GO_ARGS="-ldflags '-X \"main.ThestralVersion=$VERSION\"'"
+BUILT_TIME=$(date -R)
+if [[ $? != 0 ]]; then
+    warn "failed to get built time"
+else
+    EXT_VARS="$EXT_VARS -X \"main.ThestralBuiltTime=$BUILT_TIME\""
+fi
+
+if [[ "$EXT_VARS" != "" ]]; then
+    GO_ARGS="-ldflags '$EXT_VARS'"
 fi
 
 if [[ $# == 0 ]]; then

@@ -16,9 +16,6 @@ type BufFreeList struct {
 // NewBufFreeList creates a BufFreeList for buffers of sizes in
 // [2^minN, 2^maxN] bytes.
 func NewBufFreeList(minN, maxN uint) *BufFreeList {
-	if minN < 0 {
-		panic("minN must be greater than or equal to 0")
-	}
 	if maxN <= 0 {
 		panic("maxN must be greater than 0")
 	}

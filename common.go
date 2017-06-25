@@ -11,7 +11,13 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// ThestralVersion is an external string variable identifying the version
+// of this binary.
 var ThestralVersion = "UNKNOWN"
+
+// ThestralBuiltTime is an external string variable identifying the built time
+// of this binary.
+var ThestralBuiltTime = "UNKNOWN"
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
@@ -139,6 +145,8 @@ func CreateLogger(config LoggingConfig) (*zap.SugaredLogger, error) {
 		zapCfg.Level.SetLevel(zap.WarnLevel)
 	case "error":
 		zapCfg.Level.SetLevel(zap.ErrorLevel)
+	case "fatal":
+		zapCfg.Level.SetLevel(zap.FatalLevel)
 	default:
 		return nil, errors.New("unknown logging level: " + config.Level)
 	}

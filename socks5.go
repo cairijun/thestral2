@@ -356,7 +356,7 @@ func (c *SOCKS5Client) Request(ctx context.Context, addr Address) (
 }
 
 func (c *SOCKS5Client) doRequest(
-	conn net.Conn, addr Address) (Address, *ProxyError) {
+	conn io.ReadWriter, addr Address) (Address, *ProxyError) {
 	var err error
 	var errType byte = ProxyGeneralErr
 	if !c.Simplified {
@@ -388,7 +388,7 @@ func (c *SOCKS5Client) doRequest(
 		errType)
 }
 
-func (c *SOCKS5Client) authenticate(conn net.Conn) (err error) {
+func (c *SOCKS5Client) authenticate(conn io.ReadWriter) (err error) {
 	// send HELLO and authenticate if required
 	helloPkt := &socksHello{[]byte{socksNoAuth}}
 	selectPkt := &socksSelect{}
@@ -430,7 +430,7 @@ const (
 	socksSuccess    = 0x00
 )
 
-type socksPacket interface {
+type socksPacket interface { // nolint: deadcode
 	WritePacket(writer io.Writer) error
 	ReadPacket(reader io.Reader) error
 }
