@@ -22,10 +22,12 @@ func init() {
 		runtime.GOOS, runtime.GOARCH, runtime.Version(), ThestralVersion)
 }
 
+// HTTPTunnelClient is a proxy client for HTTP tunnel protocol.
 type HTTPTunnelClient struct {
 	Addr string
 }
 
+// Request establish a connection via the HTTP tunnel proxy.
 func (c HTTPTunnelClient) Request(ctx context.Context, addr Address) (
 	io.ReadWriteCloser, Address, *ProxyError) {
 	conn, err := TCPTransport{}.Dial(ctx, c.Addr)
@@ -36,7 +38,7 @@ func (c HTTPTunnelClient) Request(ctx context.Context, addr Address) (
 		_ = conn.SetDeadline(ddl.Add(-time.Millisecond))
 	}
 
-	brc := &bufReadRWC{bufio.NewReader(conn), conn}
+	brc := &bufReadRWC{conn, bufio.NewReader(conn)}
 	errCh := make(chan *ProxyError, 1)
 	go func() {
 		if err := c.sendRequest(brc, addr); err != nil {
@@ -82,7 +84,7 @@ func (c HTTPTunnelClient) sendRequest(w io.Writer, addr Address) *ProxyError {
 func (c HTTPTunnelClient) readResponse(brc *bufReadRWC) *ProxyError {
 	var err error
 	var errType byte = ProxyGeneralErr // default error type
-	line, _, err := brc.ReadLine()
+	line, _, err := brc.b.ReadLine()
 	if err != nil {
 		err = errors.WithMessage(err, "failed to read from proxy server")
 		return wrapAsProxyError(err, errType)
@@ -112,7 +114,7 @@ func (c HTTPTunnelClient) readResponse(brc *bufReadRWC) *ProxyError {
 	}
 
 	for { // drop headers
-		line, _, err = brc.ReadLine()
+		line, _, err = brc.b.ReadLine()
 		if err != nil {
 			err = errors.WithMessage(err, "failed to read from proxy server")
 			return wrapAsProxyError(err, errType)
@@ -124,14 +126,14 @@ func (c HTTPTunnelClient) readResponse(brc *bufReadRWC) *ProxyError {
 }
 
 type bufReadRWC struct {
-	*bufio.Reader
-	c net.Conn
+	net.Conn
+	b *bufio.Reader
 }
 
-func (b *bufReadRWC) Write(p []byte) (n int, err error) {
-	return b.c.Write(p)
+func (b *bufReadRWC) Read(p []byte) (int, error) {
+	return b.b.Read(p)
 }
 
-func (b *bufReadRWC) Close() error {
-	return b.c.Close()
+func (b *bufReadRWC) WriteTo(w io.Writer) (int64, error) {
+	return b.b.WriteTo(w)
 }

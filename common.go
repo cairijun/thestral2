@@ -90,6 +90,30 @@ func FromNetAddr(netAddr net.Addr) (Address, error) {
 	return &TCP6Addr{IP: tcpAddr.IP, Port: uint16(tcpAddr.Port)}, nil
 }
 
+// ParseAddress tries to parse a string into an Address.
+func ParseAddress(s string) (Address, error) {
+	h, p, err := net.SplitHostPort(s)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	port, err := strconv.Atoi(p)
+	if err != nil {
+		port, err = net.LookupPort("tcp", p)
+	}
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	if ip := net.ParseIP(h); ip != nil {
+		if ip.To4() != nil {
+			return &TCP4Addr{ip, uint16(port)}, nil
+		}
+		return &TCP6Addr{ip, uint16(port)}, nil
+	}
+	return &DomainNameAddr{h, uint16(port)}, nil
+}
+
 // CreateLogger creates a zap SugaredLogger from given configuration.
 func CreateLogger(config LoggingConfig) (*zap.SugaredLogger, error) {
 	zapCfg := zap.NewProductionConfig()

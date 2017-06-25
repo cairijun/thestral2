@@ -39,9 +39,13 @@ func CreateTransport(config *TransportConfig) (transport Transport, err error) {
 		return TCPTransport{}, nil
 	}
 
-	// KCP/TCP is should be the inner most layer
-	if config.KCP != nil {
+	// Proxied/KCP/TCP is should be the inner most layer
+	if config.KCP != nil && config.Proxied != nil {
+		err = errors.New("'kcp' cannot be used along with 'proxied'")
+	} else if config.KCP != nil {
 		transport, err = NewKCPTransport(*config.KCP)
+	} else if config.Proxied != nil {
+		transport, err = NewProxiedTransport(*config.Proxied)
 	} else {
 		transport = TCPTransport{}
 	}

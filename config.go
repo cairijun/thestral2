@@ -24,9 +24,10 @@ type ProxyConfig struct {
 
 // TransportConfig describes a transport layer.
 type TransportConfig struct {
-	Compression string     `yaml:"compression"`
-	TLS         *TLSConfig `yaml:"tls"`
-	KCP         *KCPConfig `yaml:"kcp"`
+	Compression string       `yaml:"compression"`
+	TLS         *TLSConfig   `yaml:"tls"`
+	KCP         *KCPConfig   `yaml:"kcp"`
+	Proxied     *ProxyConfig `yaml:"proxied"`
 }
 
 // TLSConfig contains the TLS configuration on some transport.
