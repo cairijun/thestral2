@@ -3,16 +3,17 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"math/rand"
 	"net"
-	"reflect"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
@@ -96,64 +97,57 @@ var packetTestCases = []struct {
 func TestSOCKS5Packets(t *testing.T) {
 	buf := new(bytes.Buffer)
 	for i, c := range packetTestCases {
-		buf.Reset()
-		err := c.packet.WritePacket(buf)
-		if c.bytes == nil {
-			if err == nil {
-				t.Errorf("case %d, marshaling error not reported", i)
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			buf.Reset()
+			err := c.packet.WritePacket(buf)
+			if c.bytes == nil {
+				assert.Error(t, err, "marshaling error not reported")
+				return
 			}
-			continue
-		} else {
-			if !bytes.Equal(c.bytes, buf.Bytes()) {
-				t.Errorf("case %d, marshaling result mismatch", i)
-			}
-		}
+			assert.Equal(t, c.bytes, buf.Bytes())
 
-		reader := bytes.NewReader(c.bytes)
-		if err = c.newPkt.ReadPacket(reader); err != nil {
-			t.Errorf("case %d, unmarshal failed: %s", i, err)
-		}
-		if !reflect.DeepEqual(c.packet, c.newPkt) {
-			t.Errorf("case %d, unmarshal result mismatch, expected %+v, actual %+v", i, c.packet, c.newPkt)
-		}
-		for n := range c.bytes {
-			_, _ = reader.Seek(0, io.SeekStart)
-			if err = c.newPkt.ReadPacket(io.LimitReader(reader, int64(n))); err == nil {
-				t.Errorf("case %d, incomplete error not reported at %d", i, n)
+			reader := bytes.NewReader(c.bytes)
+			err = c.newPkt.ReadPacket(reader)
+			if assert.NoError(t, err) {
+				assert.Equal(t, c.packet, c.newPkt)
 			}
-		}
+			for n := range c.bytes {
+				_, _ = reader.Seek(0, io.SeekStart)
+				err = c.newPkt.ReadPacket(io.LimitReader(reader, int64(n)))
+				require.Error(t, err, // nolint: vet
+					"incomplete error not reported at %d", n)
+			}
+		})
 	}
 }
 
 func doTestSOCKS5Request(
 	t *testing.T, addr Address, simplified bool,
 	checkUserFunc CheckUserFunc, provideUser, shouldFail bool) {
-	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second) // nolint: vet
-	address := "localhost:" + strconv.Itoa(52048+(rand.Intn(2048)))
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	address := "127.0.0.1:" + strconv.Itoa(52048+(rand.Intn(2048)))
 	trans := &TCPTransport{}
 
 	logger := zap.NewNop().Sugar()
 	svr, err := newSOCKS5Server(
 		logger, trans, address, simplified, checkUserFunc)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	reqCh, err := svr.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	go func() {
 		select {
 		case req := <-reqCh:
 			actual := req.TargetAddr()
-			if addr.String() != actual.String() {
-				t.Errorf("addr mismatch, expected %+v, actual %+v", addr, actual)
-				req.Fail(wrapAsProxyError(errors.New("mismatch"), ProxyGeneralErr))
-			} else {
-				conn := req.Success(&TCP4Addr{net.ParseIP("123.45.67.89").To4(), 23333})
+			if assert.Equal(t, addr.String(), actual.String()) {
+				conn := req.Success(
+					&TCP4Addr{net.ParseIP("123.45.67.89").To4(), 23333})
 				_, _ = conn.Write([]byte("hello"))
 				_ = conn.Close()
+			} else {
+				req.Fail(
+					wrapAsProxyError(errors.New("mismatch"), ProxyGeneralErr))
 			}
 		case <-ctx.Done():
 		}
@@ -167,23 +161,16 @@ func doTestSOCKS5Request(
 	}
 	conn, boundAddr, pErr := cli.Request(ctx, addr)
 	if shouldFail {
-		if pErr == nil {
-			t.Error("this test should fail when requesting, but did not")
-		}
+		require.NotNil(
+			t, pErr, "this test should fail when requesting, but did not")
 		return
 	}
-	if pErr != nil {
-		t.Fatalf("failed to send request: %+v", pErr.Error)
-	}
+	require.Nil(t, pErr)
 	assert.Equal(t, &TCP4Addr{net.ParseIP("123.45.67.89").To4(), 23333}, boundAddr)
 	buf := make([]byte, 5)
 	_, err = io.ReadFull(conn, buf)
-	if err != nil {
-		t.Errorf("%+v", err)
-	}
-	if !bytes.Equal([]byte("hello"), buf) {
-		t.Errorf("data mismatch")
-	}
+	assert.NoError(t, err)
+	assert.EqualValues(t, "hello", buf)
 
 	svr.Stop()
 }

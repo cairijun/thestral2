@@ -31,8 +31,8 @@ type E2ETestSuite struct {
 }
 
 func (s *E2ETestSuite) SetupSuite() {
-	s.locAddr = "localhost:64892"
-	s.svrAddr = "localhost:64893"
+	s.locAddr = "127.0.0.1:64892"
+	s.svrAddr = "127.0.0.1:64893"
 
 	s.locConfig = &Config{
 		Downstreams: map[string]ProxyConfig{"local": {
@@ -76,7 +76,7 @@ func (s *E2ETestSuite) SetupSuite() {
 		Logging: LoggingConfig{Level: "fatal"},
 	}
 
-	tgtAddr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	tgtAddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
 	s.Require().NoError(err)
 	s.targetSvr, err = net.ListenTCP("tcp", tgtAddr)
 	s.Require().NoError(err)

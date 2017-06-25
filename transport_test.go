@@ -75,7 +75,7 @@ func doTestWithTransConf(t *testing.T, svrConfig, cliConfig *TransportConfig) {
 	cliTrans, err := CreateTransport(cliConfig)
 	require.NoError(t, err)
 
-	address := "localhost:" + strconv.Itoa(50000+(rand.Intn(2048)))
+	address := "127.0.0.1:" + strconv.Itoa(50000+(rand.Intn(2048)))
 	listener, err := svrTrans.Listen(address)
 	require.NoError(t, err)
 
