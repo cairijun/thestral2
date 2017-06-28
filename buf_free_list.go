@@ -4,7 +4,7 @@ import "sync"
 
 // GlobalBufPool is a globally available BufFreeList for buffers of sizes
 // between 16B and 16K.
-var GlobalBufPool = NewBufFreeList(4, 14) // 16B -> 16K
+var GlobalBufPool = NewBufFreeList(4, 16) // 16B -> 64K
 
 // BufFreeList is a bucketing free list for byte buffers.
 type BufFreeList struct {

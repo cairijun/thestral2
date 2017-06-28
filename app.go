@@ -28,7 +28,6 @@ type Thestral struct {
 	upstreams      map[string]ProxyClient
 	upstreamNames  []string
 	ruleMatcher    *RuleMatcher
-	relayBufPool   *sync.Pool
 	connectTimeout time.Duration
 }
 
@@ -44,11 +43,6 @@ func NewThestralApp(config Config) (app *Thestral, err error) {
 	app = &Thestral{
 		downstreams: make(map[string]ProxyServer),
 		upstreams:   make(map[string]ProxyClient),
-		relayBufPool: &sync.Pool{
-			New: func() interface{} {
-				return make([]byte, relayBufferSize)
-			},
-		},
 	}
 
 	// create logger
@@ -260,8 +254,8 @@ func (t *Thestral) relayHalf(
 		n, err = rt.ReadFrom(src)
 
 	} else {
-		buf := t.relayBufPool.Get().([]byte)
-		defer t.relayBufPool.Put(buf)
+		buf := GlobalBufPool.Get(relayBufferSize)
+		defer GlobalBufPool.Free(buf)
 		for {
 			var nr, nw int
 			if nr, err = src.Read(buf); err == nil { // data read from src

@@ -123,6 +123,7 @@ func ParseAddress(s string) (Address, error) {
 // CreateLogger creates a zap SugaredLogger from given configuration.
 func CreateLogger(config LoggingConfig) (*zap.SugaredLogger, error) {
 	zapCfg := zap.NewProductionConfig()
+	zapCfg.Sampling = nil // disable sampling as it is useless in our scale
 	if config.File != "" {
 		zapCfg.OutputPaths = []string{config.File}
 	}

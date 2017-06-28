@@ -81,7 +81,6 @@ func (t *KCPTransport) Dial(
 	select {
 	case rst := <-resultCh:
 		if rst.err != nil {
-			_ = rst.conn.Close()
 			return nil, errors.WithStack(rst.err)
 		}
 		return rst.conn, nil
