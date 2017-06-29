@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -51,8 +52,16 @@ func NewKCPTransport(config KCPConfig) (*KCPTransport, error) {
 	}
 
 	if config.FEC {
-		t.kcpDataShards = 10
-		t.kcpParityShards = 2
+		if config.FECDist == "" {
+			t.kcpDataShards = 10
+			t.kcpParityShards = 2
+		} else {
+			_, err := fmt.Sscanf(
+				config.FECDist, "%d,%d", &t.kcpDataShards, &t.kcpParityShards)
+			if err != nil {
+				return nil, errors.Wrap(err, "invalid FEC distribution")
+			}
+		}
 	}
 
 	return t, nil

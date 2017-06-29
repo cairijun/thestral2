@@ -20,6 +20,7 @@ var gKCPServerConfig = &KCPConfig{
 	Mode:     "fast2",
 	Optimize: "send",
 	FEC:      true,
+	FECDist:  "10, 2",
 }
 var gKCPClientConfig = &KCPConfig{
 	Mode:     "fast2",

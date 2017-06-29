@@ -46,6 +46,7 @@ type KCPConfig struct {
 	Mode     string `yaml:"mode"`
 	Optimize string `yaml:"optimize"`
 	FEC      bool   `yaml:"fec"`
+	FECDist  string `yaml:"fec_dist"`
 }
 
 // RuleConfig describes how to dispatch proxy requests.
