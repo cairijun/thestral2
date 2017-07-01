@@ -116,10 +116,7 @@ func (s *SOCKS5Server) Start() (<-chan ProxyRequest, error) {
 			}
 
 			reqID := GetNextRequestID()
-			cliLogger := s.log.With(
-				"addr", conn.RemoteAddr(),
-				"reqID", reqID,
-			).Named("client")
+			cliLogger := s.log.With("reqID", reqID).Named("client")
 			cliLogger.Debugw(
 				"client connection accepted", "addr", conn.RemoteAddr())
 			req := &socks5Request{
@@ -168,15 +165,9 @@ func (s *SOCKS5Server) handshake(cli *socks5Request) {
 		}
 	}
 
-	var peerIDs []*PeerIdentifier
-	if err == nil {
-		peerIDs, err = cli.GetPeerIdentifiers()
-	}
-
 	// get request
 	reqPkt := &socksReqResp{}
 	if err == nil {
-		cli.log = cli.log.With("user_ids", peerIDs)
 		err = reqPkt.ReadPacket(cli.conn)
 	}
 
@@ -186,21 +177,28 @@ func (s *SOCKS5Server) handshake(cli *socks5Request) {
 			cli.targetAddr = reqPkt.Addr
 		} else {
 			err = errors.Errorf("client sent unsupported cmd: %d", reqPkt.Type)
-			reqPkt.Type = ProxyCmdUnsupported
+			reqPkt.Type = byte(ProxyCmdUnsupported)
 			_ = reqPkt.WritePacket(cli.conn)
 		}
 	} else if addrErr, isAddrError := err.(addrError); isAddrError {
 		err = addrErr.error
-		reqPkt.Type = ProxyAddrUnsupported
+		reqPkt.Type = byte(ProxyAddrUnsupported)
 		_ = reqPkt.WritePacket(cli.conn)
 	}
 
+	var peerIDs []*PeerIdentifier
+	if err == nil {
+		peerIDs, err = cli.GetPeerIdentifiers()
+	}
 	if err == nil {
 		cli.log.Debugw(
-			"handshake with SOCKS5 client succeeded", "target", cli.targetAddr)
+			"handshake with SOCKS5 client succeeded",
+			"target", cli.targetAddr, "user_ids", peerIDs)
 		s.reqCh <- cli
 	} else {
-		cli.log.Warnw("handshake with SOCKS5 client failed", "error", err)
+		cli.log.Warnw(
+			"handshake with SOCKS5 client failed",
+			"error", err, "user_ids", peerIDs)
 		_ = cli.conn.Close()
 	}
 }
@@ -254,6 +252,18 @@ func (r *socks5Request) GetPeerIdentifiers() ([]*PeerIdentifier, error) {
 	return ids, nil
 }
 
+// PeerAddr returns the address of the client.
+func (r *socks5Request) PeerAddr() Address {
+	addr, err := FromNetAddr(r.conn.RemoteAddr())
+	if err != nil {
+		r.Logger().DPanicw(
+			"failed to parse client address",
+			"error", err, "addr", r.conn.RemoteAddr())
+		return nil
+	}
+	return addr
+}
+
 // TargetAddr returns the address the client wants to connect to.
 func (r *socks5Request) TargetAddr() Address {
 	return r.targetAddr
@@ -273,7 +283,7 @@ func (r *socks5Request) Success(addr Address) io.ReadWriteCloser {
 // Fail notifies the client that the connection is not able to be established.
 func (r *socks5Request) Fail(proxyErr *ProxyError) {
 	respPkt := &socksReqResp{
-		Type: proxyErr.ErrType, Addr: &TCP4Addr{net.IPv4zero, 0}}
+		Type: byte(proxyErr.ErrType), Addr: &TCP4Addr{net.IPv4zero, 0}}
 	if err := respPkt.WritePacket(r.conn); err != nil {
 		r.log.Warnw("failed to write error response packet", "error", err)
 	}
@@ -358,7 +368,7 @@ func (c *SOCKS5Client) Request(ctx context.Context, addr Address) (
 func (c *SOCKS5Client) doRequest(
 	conn io.ReadWriter, addr Address) (Address, *ProxyError) {
 	var err error
-	var errType byte = ProxyGeneralErr
+	errType := ProxyGeneralErr
 	if !c.Simplified {
 		err = c.authenticate(conn)
 	}
@@ -377,8 +387,8 @@ func (c *SOCKS5Client) doRequest(
 		if err = respPkt.ReadPacket(conn); err == nil {
 			if respPkt.Type != socksSuccess {
 				// socks error codes are identical to those of ProxyError
-				err = errors.Errorf("SOCKS server replies %d", respPkt.Type)
-				errType = respPkt.Type
+				errType = ProxyErrorType(respPkt.Type)
+				err = errors.Errorf("SOCKS server replies %s", errType)
 			}
 		}
 	}

@@ -12,14 +12,20 @@ import (
 	"go.uber.org/zap"
 )
 
+// ProxyErrorType is the type of a proxy error. Its value is identical to those
+// of SOCKS protocol.
+type ProxyErrorType byte
+
 // nolint: golint
 const (
-	ProxyGeneralErr      = 0x01
-	ProxyNotAllowed      = 0x02
-	ProxyConnectFailed   = 0x05
-	ProxyCmdUnsupported  = 0x07
-	ProxyAddrUnsupported = 0x08
+	ProxyGeneralErr      ProxyErrorType = 0x01
+	ProxyNotAllowed      ProxyErrorType = 0x02
+	ProxyConnectFailed   ProxyErrorType = 0x05
+	ProxyCmdUnsupported  ProxyErrorType = 0x07
+	ProxyAddrUnsupported ProxyErrorType = 0x08
 )
+
+//go:generate stringer -type=ProxyErrorType
 
 var currRequestID uint64
 
@@ -37,10 +43,10 @@ func GetNextRequestID() string {
 // ProxyError is a wrapper of a normal error along with a proxy error type code.
 type ProxyError struct {
 	Error   error
-	ErrType byte
+	ErrType ProxyErrorType
 }
 
-func wrapAsProxyError(err error, errType byte) *ProxyError {
+func wrapAsProxyError(err error, errType ProxyErrorType) *ProxyError {
 	if err == nil {
 		return nil
 	}
@@ -50,6 +56,7 @@ func wrapAsProxyError(err error, errType byte) *ProxyError {
 // ProxyRequest represents a proxy request sent by the client.
 type ProxyRequest interface {
 	WithPeerIdentifiers
+	PeerAddr() Address
 	TargetAddr() Address
 	Success(addr Address) io.ReadWriteCloser
 	Fail(err *ProxyError)

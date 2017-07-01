@@ -131,7 +131,7 @@ func (t *Thestral) Run(ctx context.Context) error {
 			log := t.log.Named("downstreams").Named(dsName)
 			log.Infof("downstream server started: %s", dsName)
 
-			t.processRequests(ctx, reqCh) // blocks
+			t.processRequests(ctx, dsName, reqCh) // blocks
 
 			server.Stop()
 			log.Infof("downstream server stopped: %s", dsName)
@@ -145,11 +145,20 @@ func (t *Thestral) Run(ctx context.Context) error {
 }
 
 func (t *Thestral) processRequests(
-	ctx context.Context, reqCh <-chan ProxyRequest) {
+	ctx context.Context, dsName string, reqCh <-chan ProxyRequest) {
 	for {
 		select {
 		case req := <-reqCh:
-			req.Logger().Infow("request accepted", "target", req.TargetAddr())
+			peerIDs, err := req.GetPeerIdentifiers()
+			if err != nil {
+				req.Logger().Warnw(
+					"failed to get peer identifiers", "error", err)
+			}
+			req.Logger().Infow("request accepted",
+				"downstream", dsName,
+				"client_addr", req.PeerAddr(),
+				"target", req.TargetAddr(),
+				"user_ids", peerIDs)
 			go t.processOneRequest(ctx, req)
 		case <-ctx.Done():
 			return
@@ -198,22 +207,21 @@ func (t *Thestral) processOneRequest(ctx context.Context, req ProxyRequest) {
 	if pErr != nil {
 		req.Logger().Errorw(
 			"connection failed", "addr", req.TargetAddr(),
-			"error", pErr.Error, "errType", pErr.ErrType)
+			"error", pErr.Error, "errType", pErr.ErrType, "upstream", selected)
 		req.Fail(pErr)
 		return
 	}
-	t.doRelay(ctx, req, boundAddr, upConn) // block
+
+	req.Logger().Infow(
+		"connection established",
+		"addr", req.TargetAddr(), "boundAddr", boundAddr, "upstream", selected)
+	downRWC := req.Success(boundAddr)
+	t.doRelay(ctx, req, downRWC, upConn) // block
 }
 
 func (t *Thestral) doRelay(
 	ctx context.Context, req ProxyRequest,
-	boundAddr Address, upRWC io.ReadWriteCloser) {
-	// notify the downstream
-	req.Logger().Infow(
-		"connection established",
-		"addr", req.TargetAddr(), "boundAddr", boundAddr)
-	downRWC := req.Success(boundAddr)
-
+	downRWC io.ReadWriteCloser, upRWC io.ReadWriteCloser) {
 	relayCtx, cancelFunc := context.WithCancel(ctx)
 	relay := func(dst, src io.ReadWriteCloser, dstName, srcName string) {
 		defer cancelFunc()

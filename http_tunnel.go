@@ -83,7 +83,7 @@ func (c HTTPTunnelClient) sendRequest(w io.Writer, addr Address) *ProxyError {
 
 func (c HTTPTunnelClient) readResponse(brc *bufReadRWC) *ProxyError {
 	var err error
-	var errType byte = ProxyGeneralErr // default error type
+	errType := ProxyGeneralErr // default error type
 	line, _, err := brc.b.ReadLine()
 	if err != nil {
 		err = errors.WithMessage(err, "failed to read from proxy server")

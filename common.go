@@ -131,10 +131,12 @@ func CreateLogger(config LoggingConfig) (*zap.SugaredLogger, error) {
 		if config.Format == "console_rich" {
 			zapCfg.Encoding = "console"
 			zapCfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-			zapCfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 		} else {
 			zapCfg.Encoding = config.Format
 		}
+	}
+	if zapCfg.Encoding == "console" {
+		zapCfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
 	switch config.Level {
 	case "": // no-op
