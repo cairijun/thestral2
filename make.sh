@@ -1,19 +1,19 @@
-#!/bin/sh
+#!/bin/bash
 
 function warn() {
-    echo "\033[1;33mWARN: $*\033[0m"
+    echo -e "\033[1;33mWARN: $*\033[0m"
 }
 
 function error() {
-    echo "\033[0;31mERROR: $*\033[0m"
+    echo -e "\033[0;31mERROR: $*\033[0m"
 }
 
 function info() {
-    echo "\033[0;37mINFO: $*\033[0m"
+    echo -e "\033[0;37mINFO: $*\033[0m"
 }
 
 function success() {
-    echo "\033[0;32m$*\033[0m"
+    echo -e "\033[0;32m$*\033[0m"
 }
 
 VERSION=$(git describe --always --dirty)
