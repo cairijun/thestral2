@@ -56,7 +56,7 @@ func wrapAsProxyError(err error, errType ProxyErrorType) *ProxyError {
 // ProxyRequest represents a proxy request sent by the client.
 type ProxyRequest interface {
 	WithPeerIdentifiers
-	PeerAddr() Address
+	PeerAddr() string
 	TargetAddr() Address
 	Success(addr Address) io.ReadWriteCloser
 	Fail(err *ProxyError)
