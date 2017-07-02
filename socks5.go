@@ -253,15 +253,8 @@ func (r *socks5Request) GetPeerIdentifiers() ([]*PeerIdentifier, error) {
 }
 
 // PeerAddr returns the address of the client.
-func (r *socks5Request) PeerAddr() Address {
-	addr, err := FromNetAddr(r.conn.RemoteAddr())
-	if err != nil {
-		r.Logger().DPanicw(
-			"failed to parse client address",
-			"error", err, "addr", r.conn.RemoteAddr())
-		return nil
-	}
-	return addr
+func (r *socks5Request) PeerAddr() string {
+	return r.conn.RemoteAddr().String()
 }
 
 // TargetAddr returns the address the client wants to connect to.
