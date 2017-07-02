@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/richardtsai/thestral2/db"
 	"go.uber.org/zap"
 )
 
@@ -94,6 +95,11 @@ func NewThestralApp(config Config) (app *Thestral, err error) {
 					ruleUpstream)
 			}
 		}
+	}
+
+	// init db
+	if err == nil && config.DB != nil {
+		err = db.InitDB(*config.DB)
 	}
 
 	// parse other settings

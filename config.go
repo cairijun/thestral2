@@ -3,6 +3,7 @@ package main
 import (
 	"io/ioutil"
 
+	"github.com/richardtsai/thestral2/db"
 	"gopkg.in/yaml.v2"
 )
 
@@ -12,6 +13,7 @@ type Config struct {
 	Upstreams   map[string]ProxyConfig `yaml:"upstreams"`
 	Rules       map[string]RuleConfig  `yaml:"rules"`
 	Logging     LoggingConfig          `yaml:"logging"`
+	DB          *db.Config             `yaml:"db"`
 	Misc        MiscConfig             `yaml:"misc"`
 }
 

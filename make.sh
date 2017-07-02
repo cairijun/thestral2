@@ -49,7 +49,7 @@ case $cmd in
     "build")
         CMD="go build $GO_ARGS $*" ;;
     "test")
-        CMD="go test $GO_ARGS $*" ;;
+        CMD="go test $GO_ARGS $* -p 1 ./..." ;;
     "install")
         CMD="go install $GO_ARGS $*" ;;
     *)
