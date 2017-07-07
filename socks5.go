@@ -12,6 +12,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const defaultSOCKS5SvrHSTimeout = time.Minute * 3
+
 // CheckUserFunc is the type of user checking callback function.
 type CheckUserFunc func(user, password string) bool
 
@@ -25,10 +27,11 @@ type SOCKS5Server struct {
 	listener   net.Listener
 	reqCh      chan ProxyRequest
 	log        *zap.SugaredLogger
+	hsTimeout  time.Duration
 }
 
-func parseSOCKS5Config(
-	config ProxyConfig) (address string, simplified bool, err error) {
+func parseSOCKS5Config(config ProxyConfig) (
+	address string, simplified bool, hsTimeout time.Duration, err error) {
 	if config.Protocol != "socks5" {
 		panic("protocol should be 'socks5' rather than: " + config.Protocol)
 	}
@@ -44,6 +47,15 @@ func parseSOCKS5Config(
 			if simplified, ok = v.(bool); !ok {
 				err = errors.Errorf("invalid value for 'simplified': %v", v)
 			}
+		case "handshake_timeout":
+			s, ok := v.(string)
+			if !ok {
+				err = errors.New("invalid value for 'handshake_timeout'")
+			} else if hsTimeout, err = time.ParseDuration(s); err != nil {
+				err = errors.Wrap(err, "invalid value for 'handshake_timeout'")
+			} else if hsTimeout <= 0 {
+				err = errors.New("'handshake_timeout' must be > 0")
+			}
 		default:
 			err = errors.New("invalid setting for SOCKS5 protocol: " + k)
 		}
@@ -53,6 +65,9 @@ func parseSOCKS5Config(
 		err = errors.New(
 			"a valid 'address' must be specified for socks5 protocol")
 	}
+	if hsTimeout == 0 {
+		hsTimeout = defaultSOCKS5SvrHSTimeout
+	}
 	return
 }
 
@@ -60,7 +75,7 @@ func parseSOCKS5Config(
 func NewSOCKS5Server(
 	logger *zap.SugaredLogger,
 	config ProxyConfig) (*SOCKS5Server, error) {
-	address, simplified, err := parseSOCKS5Config(config)
+	address, simplified, hsTimeout, err := parseSOCKS5Config(config)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create SOCKS5 server")
 	}
@@ -70,14 +85,15 @@ func NewSOCKS5Server(
 		return nil, errors.WithMessage(err, "failed to create SOCKS5 server")
 	}
 
-	return newSOCKS5Server(logger, transport, address, simplified, nil)
+	return newSOCKS5Server(
+		logger, transport, address, simplified, nil, hsTimeout)
 }
 
 // newSOCKS5Server creates a SOCKS5Server. It is used internally.
 func newSOCKS5Server(
 	logger *zap.SugaredLogger,
 	transport Transport, addr string, simplified bool,
-	checkUser CheckUserFunc) (*SOCKS5Server, error) {
+	checkUser CheckUserFunc, hsTimeout time.Duration) (*SOCKS5Server, error) {
 	if simplified && checkUser != nil {
 		return nil, errors.New(
 			"simplified SOCKS5 does not support authentication")
@@ -88,6 +104,7 @@ func newSOCKS5Server(
 		simplified: simplified,
 		checkUser:  checkUser,
 		log:        logger,
+		hsTimeout:  hsTimeout,
 	}, nil
 }
 
@@ -141,6 +158,8 @@ func (s *SOCKS5Server) Stop() {
 }
 
 func (s *SOCKS5Server) handshake(cli *socks5Request) {
+	_ = cli.conn.SetDeadline(time.Now().Add(s.hsTimeout))
+	defer cli.conn.SetDeadline(time.Time{}) // nolint: errcheck
 	var err error
 	if !s.simplified {
 		// authenticate
@@ -198,7 +217,7 @@ func (s *SOCKS5Server) handshake(cli *socks5Request) {
 	} else {
 		cli.log.Warnw(
 			"handshake with SOCKS5 client failed",
-			"error", err, "user_ids", peerIDs)
+			"error", err, "user_ids", peerIDs, "client_addr", cli.PeerAddr())
 		_ = cli.conn.Close()
 	}
 }
@@ -306,7 +325,7 @@ type SOCKS5Client struct {
 
 // NewSOCKS5Client creates a SOCKS5 client from the given configuration.
 func NewSOCKS5Client(config ProxyConfig) (*SOCKS5Client, error) {
-	address, simplified, err := parseSOCKS5Config(config)
+	address, simplified, _, err := parseSOCKS5Config(config)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create SOCKS5 client")
 	}

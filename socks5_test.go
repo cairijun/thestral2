@@ -131,7 +131,7 @@ func doTestSOCKS5Request(
 
 	logger := zap.NewNop().Sugar()
 	svr, err := newSOCKS5Server(
-		logger, trans, address, simplified, checkUserFunc)
+		logger, trans, address, simplified, checkUserFunc, time.Second*10)
 	require.NoError(t, err)
 
 	reqCh, err := svr.Start()
