@@ -68,7 +68,8 @@ func (s *E2ETestSuite) SetupSuite() {
 				},
 				KCP: &KCPConfig{Mode: "fast2", Optimize: "send", FEC: true},
 			},
-			Settings: map[string]interface{}{"address": s.svrAddr, "simplified": true},
+			Settings: map[string]interface{}{
+				"address": s.svrAddr, "simplified": true, "handshake_timeout": "1s"},
 		}},
 		Upstreams: map[string]ProxyConfig{"direct": {Protocol: "direct"}},
 		Rules: map[string]RuleConfig{
