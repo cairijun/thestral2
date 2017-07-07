@@ -13,7 +13,7 @@ import (
 
 // ThestralVersion is an external string variable identifying the version
 // of this binary.
-var ThestralVersion = "v1.0.0"
+var ThestralVersion = "v1.0.1"
 
 // ThestralBuiltTime is an external string variable identifying the built time
 // of this binary.
