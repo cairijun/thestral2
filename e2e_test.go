@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/richardtsai/thestral2/lib"
 	"github.com/stretchr/testify/suite"
 )
 

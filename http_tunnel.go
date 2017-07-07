@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	. "github.com/richardtsai/thestral2/lib"
 )
 
 var httpUserAgent string

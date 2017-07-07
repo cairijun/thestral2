@@ -7,6 +7,7 @@ import (
 	"regexp"
 
 	"github.com/pkg/errors"
+	"github.com/richardtsai/thestral2/lib"
 )
 
 const defaultRuleName = "default"
@@ -21,7 +22,7 @@ type RuleMatcher struct {
 }
 
 // NewRuleMatcher creates a RuleMatcher from a given configuration.
-func NewRuleMatcher(config map[string]RuleConfig) (*RuleMatcher, error) {
+func NewRuleMatcher(config map[string]lib.RuleConfig) (*RuleMatcher, error) {
 	m := &RuleMatcher{}
 	m.ruleToUpstreams = make(map[string][]string)
 	domainRules := make(map[string][]string)

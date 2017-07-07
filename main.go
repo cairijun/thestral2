@@ -4,27 +4,46 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
+	"time"
 
 	"net/http"
 	_ "net/http/pprof"
+
+	"github.com/richardtsai/thestral2/lib"
+	"github.com/richardtsai/thestral2/tools"
 )
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
+func printUsage() {
+	_, _ = fmt.Fprintf(os.Stderr, "Usage: thestral2 [tool] [arguments]\n\n")
+	_, _ = fmt.Fprintf(os.Stderr, "Main arguments:\n")
+	flag.PrintDefaults()
+	_, _ = fmt.Fprintln(os.Stderr)
+	tools.PrintUsage()
+	os.Exit(0)
+}
+
 func main() {
+	flag.Usage = printUsage
+	tools.Init()
+	if len(os.Args) > 1 && os.Args[1][0] != '-' { // run tools
+		tools.Run(os.Args[1], os.Args[1:])
+		return
+	}
+
 	configFile := flag.String("c", "", "configuration file")
-	printVersion := flag.Bool("v", false, "print version")
 	flag.Parse()
 
-	if *printVersion {
-		fmt.Printf("%s\nVersion: %s\nBuilt on: %s\n",
-			os.Args[0], ThestralVersion, ThestralBuiltTime)
-		os.Exit(0)
-	}
 	if *configFile == "" {
-		panic("a configuration file must be specified")
+		printUsage()
 	}
 
-	config, err := ParseConfigFile(*configFile)
+	config, err := lib.ParseConfigFile(*configFile)
 	if err != nil {
 		panic(err)
 	}

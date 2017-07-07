@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/richardtsai/thestral2/lib"
 )
 
 // ProxiedTransport is a client-only Transport that dials to a remote host
@@ -17,7 +18,7 @@ type ProxiedTransport struct {
 
 // NewProxiedTransport creates a ProxiedTransport from the given proxy
 // configuration.
-func NewProxiedTransport(config ProxyConfig) (*ProxiedTransport, error) {
+func NewProxiedTransport(config lib.ProxyConfig) (*ProxiedTransport, error) {
 	upstream, err := CreateProxyClient(config)
 	if err != nil {
 		return nil, errors.WithMessage(
@@ -34,7 +35,7 @@ func (t *ProxiedTransport) Listen(address string) (net.Listener, error) {
 // Dial creates a connection to a remote host via the proxy.
 func (t *ProxiedTransport) Dial(
 	ctx context.Context, address string) (net.Conn, error) {
-	addr, err := ParseAddress(address)
+	addr, err := lib.ParseAddress(address)
 	if err != nil {
 		return nil, errors.WithMessage(err, "invalid address")
 	}

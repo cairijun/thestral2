@@ -9,6 +9,7 @@ import (
 	"github.com/golang/snappy"
 	"github.com/pierrec/lz4"
 	"github.com/pkg/errors"
+	. "github.com/richardtsai/thestral2/lib"
 )
 
 // WrapTransCompression wraps a Transport with a given compression method.

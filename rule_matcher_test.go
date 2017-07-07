@@ -4,6 +4,7 @@ import (
 	"net"
 	"testing"
 
+	. "github.com/richardtsai/thestral2/lib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

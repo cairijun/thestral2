@@ -16,19 +16,20 @@ function success() {
     echo -e "\033[0;32m$*\033[0m"
 }
 
+COMM_PKG="github.com/richardtsai/thestral2/lib"
 VERSION=$(git describe --always --dirty)
 if [[ $? != 0 ]]; then
     warn "failed to retrive version"
 else
     info "version: $VERSION"
-    EXT_VARS="-X \"main.ThestralVersion=$VERSION\""
+    EXT_VARS="-X \"$COMM_PKG.ThestralVersion=$VERSION\""
 fi
 
 BUILT_TIME=$(date -R)
 if [[ $? != 0 ]]; then
     warn "failed to get built time"
 else
-    EXT_VARS="$EXT_VARS -X \"main.ThestralBuiltTime=$BUILT_TIME\""
+    EXT_VARS="$EXT_VARS -X \"$COMM_PKG.ThestralBuiltTime=$BUILT_TIME\""
 fi
 
 if [[ "$EXT_VARS" != "" ]]; then
