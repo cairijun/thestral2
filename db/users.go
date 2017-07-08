@@ -23,7 +23,7 @@ type User struct {
 	gorm.Model
 	Scope  string `gorm:"unique_index:idx_scope_name"`
 	Name   string `gorm:"unique_index:idx_scope_name"`
-	PWHash []byte
+	PWHash *[]byte
 }
 
 // UserDAO is the DAO for User.
@@ -60,6 +60,17 @@ func (d *UserDAO) Delete(scope, name string) error {
 		return errors.Wrapf(
 			q.Error, "failed to delete user '%s/%s'", scope, name)
 	}
+	if q.RowsAffected == 0 {
+		return errors.New("user not found")
+	}
+	return nil
+}
+
+// Update saves the user to the database.
+func (d *UserDAO) Update(user *User) error {
+	if q := d.db.Save(user); q.Error != nil {
+		return errors.Wrap(q.Error, "failed to update user")
+	}
 	return nil
 }
 
@@ -76,6 +87,29 @@ func (d *UserDAO) Get(scope, name string) (*User, error) {
 	return &u, nil
 }
 
+// List returns an ordered list of all the users in a scope.
+func (d *UserDAO) List(scope string) ([]*User, error) {
+	results := []*User{}
+	query := d.db.Where("scope = ?", scope).Order("name").Find(&results)
+	if query.Error != nil {
+		if query.RecordNotFound() {
+			return nil, errors.Errorf("scope '%s' not found", scope)
+		}
+		return nil, errors.Wrap(query.Error, "error occurred when querying db")
+	}
+	return results, nil
+}
+
+// ListAll returns an ordered list of all the users.
+func (d *UserDAO) ListAll() ([]*User, error) {
+	results := []*User{}
+	query := d.db.Order("scope, name").Find(&results)
+	if query.Error != nil {
+		return nil, errors.Wrap(query.Error, "error occurred when querying db")
+	}
+	return results, nil
+}
+
 // CheckExists return a boolean value indicating the existence of the user.
 func (d *UserDAO) CheckExists(scope, name string) bool {
 	_, err := d.Get(scope, name)
@@ -85,9 +119,9 @@ func (d *UserDAO) CheckExists(scope, name string) bool {
 // CheckPassword checks if the given password is correct for the user.
 func (d *UserDAO) CheckPassword(scope, name, password string) bool {
 	u, err := d.Get(scope, name)
-	if err != nil {
+	if err != nil || u.PWHash == nil {
 		return false
 	}
-	err = bcrypt.CompareHashAndPassword(u.PWHash, []byte(password))
+	err = bcrypt.CompareHashAndPassword(*u.PWHash, []byte(password))
 	return err == nil
 }

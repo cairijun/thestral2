@@ -25,7 +25,6 @@ func printUsage() {
 	flag.PrintDefaults()
 	_, _ = fmt.Fprintln(os.Stderr)
 	tools.PrintUsage()
-	os.Exit(0)
 }
 
 func main() {
@@ -41,6 +40,7 @@ func main() {
 
 	if *configFile == "" {
 		printUsage()
+		os.Exit(0)
 	}
 
 	config, err := lib.ParseConfigFile(*configFile)
