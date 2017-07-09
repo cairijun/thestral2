@@ -55,6 +55,11 @@ func NewThestralApp(config Config) (app *Thestral, err error) {
 		}
 	}
 
+	// init db
+	if err == nil && config.DB != nil {
+		err = db.InitDB(*config.DB)
+	}
+
 	// create downstream servers
 	if err == nil {
 		dsLogger := app.log.Named("downstreams")
@@ -96,11 +101,6 @@ func NewThestralApp(config Config) (app *Thestral, err error) {
 					ruleUpstream)
 			}
 		}
-	}
-
-	// init db
-	if err == nil && config.DB != nil {
-		err = db.InitDB(*config.DB)
 	}
 
 	// parse other settings

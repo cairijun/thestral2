@@ -9,11 +9,15 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/richardtsai/thestral2/db"
 	. "github.com/richardtsai/thestral2/lib"
 	"go.uber.org/zap"
 )
 
-const defaultSOCKS5SvrHSTimeout = time.Minute * 3
+const (
+	defaultSOCKS5SvrHSTimeout = time.Minute * 3
+	socks5Scope               = "proxy.socks5"
+)
 
 // CheckUserFunc is the type of user checking callback function.
 type CheckUserFunc func(user, password string) bool
@@ -57,8 +61,6 @@ func parseSOCKS5Config(config ProxyConfig) (
 			} else if hsTimeout <= 0 {
 				err = errors.New("'handshake_timeout' must be > 0")
 			}
-		default:
-			err = errors.New("invalid setting for SOCKS5 protocol: " + k)
 		}
 	}
 
@@ -81,13 +83,34 @@ func NewSOCKS5Server(
 		return nil, errors.WithMessage(err, "failed to create SOCKS5 server")
 	}
 
+	checkUser := false
+	if c, ok := config.Settings["check_users"]; ok {
+		if checkUser, ok = c.(bool); !ok {
+			return nil, errors.New("invalid value for 'check_users'")
+		} else if !db.Inited {
+			return nil, errors.New("user checking requires a database specified")
+		}
+	}
+
 	transport, err := CreateTransport(config.Transport)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create SOCKS5 server")
 	}
 
+	var checkUserFunc CheckUserFunc
+	if checkUser {
+		checkUserFunc = func(user, password string) bool {
+			if dao, err := db.NewUserDAO(); err != nil {
+				logger.Errorw("failed to open user database", "error", err)
+				return false
+			} else { // nolint: golint
+				defer dao.Close() // nolint: errcheck
+				return dao.CheckPassword(socks5Scope, user, password)
+			}
+		}
+	}
 	return newSOCKS5Server(
-		logger, transport, address, simplified, nil, hsTimeout)
+		logger, transport, address, simplified, checkUserFunc, hsTimeout)
 }
 
 // newSOCKS5Server creates a SOCKS5Server. It is used internally.
@@ -258,8 +281,9 @@ func (r *socks5Request) GetPeerIdentifiers() ([]*PeerIdentifier, error) {
 	var ids []*PeerIdentifier
 	if r.user != "" {
 		ids = append(ids, &PeerIdentifier{
-			Scope:    "proxy.socks5",
+			Scope:    socks5Scope,
 			UniqueID: r.user,
+			Name:     r.user,
 		})
 	}
 	if withID, ok := r.conn.(WithPeerIdentifiers); ok {
@@ -330,6 +354,20 @@ func NewSOCKS5Client(config ProxyConfig) (*SOCKS5Client, error) {
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create SOCKS5 client")
 	}
+	var username, password string
+	if u, ok := config.Settings["username"]; ok {
+		if username, ok = u.(string); !ok {
+			return nil, errors.New("a string is required for 'username'")
+		}
+	}
+	if p, ok := config.Settings["password"]; ok {
+		if password, ok = p.(string); !ok {
+			return nil, errors.New("a string is required for 'password'")
+		}
+	}
+	if username == "" && password != "" {
+		return nil, errors.New("a password must be used with a username")
+	}
 
 	transport, err := CreateTransport(config.Transport)
 	if err != nil {
@@ -338,6 +376,7 @@ func NewSOCKS5Client(config ProxyConfig) (*SOCKS5Client, error) {
 
 	return &SOCKS5Client{
 		Transport: transport, Addr: address, Simplified: simplified,
+		Username: username, Password: password,
 	}, nil
 }
 
@@ -436,21 +475,25 @@ func (c *SOCKS5Client) authenticate(conn io.ReadWriter) (err error) {
 			err = errors.New("authentication to SOCKS server failed")
 		}
 	case socksNoAuth: // no-op
+	case socksNoValidAuth:
+		err = errors.New("no valid authentication supported by the server")
 	default:
-		err = errors.New("SOCKS server require unknown authentication")
+		err = errors.Errorf("SOCKS server require unknown authentication: %v",
+			selectPkt.Method)
 	}
 	return
 }
 
 const (
-	socksVersion    = 0x05
-	socksNoAuth     = 0x00
-	socksUserPass   = 0x02
-	socksConnect    = 0x01
-	socksIPv4       = 0x01
-	socksDomainName = 0x03
-	socksIPv6       = 0x04
-	socksSuccess    = 0x00
+	socksVersion     = 0x05
+	socksNoAuth      = 0x00
+	socksNoValidAuth = 0xff
+	socksUserPass    = 0x02
+	socksConnect     = 0x01
+	socksIPv4        = 0x01
+	socksDomainName  = 0x03
+	socksIPv6        = 0x04
+	socksSuccess     = 0x00
 )
 
 type socksPacket interface { // nolint: deadcode

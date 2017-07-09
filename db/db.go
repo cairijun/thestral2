@@ -6,8 +6,11 @@ import (
 )
 
 var (
+	// EnabledDrivers is the names of the supported database drivers.
 	EnabledDrivers []string
-	dbConfig       *Config
+	// Inited indicates whether the database was initialized
+	Inited   bool = false
+	dbConfig *Config
 )
 
 // Config contains configuration about how to connect to the database.
@@ -25,6 +28,7 @@ func InitDB(config Config) error {
 			return err
 		}
 		err = db.AutoMigrate(&User{}).Error // create tables when necessary
+		Inited = err == nil
 		return errors.Wrap(err, "failed to initialize database")
 	}
 	return errors.Errorf(

@@ -3,11 +3,15 @@ package main
 import (
 	"context"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"net"
+	"os"
+	"path"
 	"testing"
 	"time"
 
+	"github.com/richardtsai/thestral2/db"
 	. "github.com/richardtsai/thestral2/lib"
 	"github.com/stretchr/testify/suite"
 )
@@ -16,6 +20,7 @@ type E2ETestSuite struct {
 	suite.Suite
 
 	// suite-level
+	tmpDir     string
 	locAddr    string
 	svrAddr    string
 	locConfig  *Config
@@ -32,13 +37,31 @@ type E2ETestSuite struct {
 }
 
 func (s *E2ETestSuite) SetupSuite() {
+	var err error
+	s.tmpDir, err = ioutil.TempDir("", "thestral2_E2ETestSuite")
+	s.Require().NoError(err)
+	s.Require().NoError(db.InitDB(db.Config{
+		Driver: "sqlite3",
+		DSN:    path.Join(s.tmpDir, "test.db"),
+	}))
+	dao, err := db.NewUserDAO()
+	s.Require().NoError(err)
+	pwhash := db.HashUserPass("password")
+	s.Require().NoError(dao.Add(&db.User{
+		Scope: "proxy.socks5", Name: "user",
+		PWHash: &pwhash,
+	}))
+	s.Require().NoError(dao.Close())
+
 	s.locAddr = "127.0.0.1:64892"
 	s.svrAddr = "127.0.0.1:64893"
 
 	s.locConfig = &Config{
 		Downstreams: map[string]ProxyConfig{"local": {
 			Protocol: "socks5",
-			Settings: map[string]interface{}{"address": s.locAddr},
+			Settings: map[string]interface{}{
+				"address": s.locAddr, "check_users": true,
+			},
 		}},
 		Upstreams: map[string]ProxyConfig{"proxy": {
 			Protocol: "socks5",
@@ -96,6 +119,7 @@ func (s *E2ETestSuite) SetupSuite() {
 }
 
 func (s *E2ETestSuite) TearDownSuite() {
+	_ = os.RemoveAll(s.tmpDir)
 	_ = s.targetSvr.Close()
 }
 
@@ -115,7 +139,12 @@ func (s *E2ETestSuite) SetupTest() {
 	}()
 	time.Sleep(time.Millisecond * 100) // ensure the servers are started
 
-	s.cli, err = CreateProxyClient(s.locConfig.Downstreams["local"])
+	s.cli, err = CreateProxyClient(ProxyConfig{
+		Protocol: "socks5",
+		Settings: map[string]interface{}{
+			"address": s.locAddr, "username": "user", "password": "password",
+		},
+	})
 	s.Require().NoError(err)
 }
 
@@ -145,6 +174,36 @@ func (s *E2ETestSuite) TestRelay() {
 	}
 
 	s.Assert().NoError(conn.Close())
+}
+
+func (s *E2ETestSuite) TestNoUserPass() {
+	cli, err := CreateProxyClient(ProxyConfig{
+		Protocol: "socks5",
+		Settings: map[string]interface{}{"address": s.locAddr},
+	})
+	s.Require().NoError(err)
+
+	_, _, pErr := cli.Request(context.Background(), s.targetAddr)
+	if s.NotNil(pErr) {
+		s.Error(pErr.Error)
+		s.Equal(ProxyGeneralErr, pErr.ErrType)
+	}
+}
+
+func (s *E2ETestSuite) TestWrongUserPass() {
+	cli, err := CreateProxyClient(ProxyConfig{
+		Protocol: "socks5",
+		Settings: map[string]interface{}{
+			"address": s.locAddr, "username": "user", "password": "wrong pass",
+		},
+	})
+	s.Require().NoError(err)
+
+	_, _, pErr := cli.Request(context.Background(), s.targetAddr)
+	if s.NotNil(pErr) {
+		s.Error(pErr.Error)
+		s.Equal(ProxyGeneralErr, pErr.ErrType)
+	}
 }
 
 func (s *E2ETestSuite) TestRejectByRule() {
