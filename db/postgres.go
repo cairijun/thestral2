@@ -5,5 +5,5 @@ package db
 import _ "github.com/jinzhu/gorm/dialects/postgres" // nolint: golint
 
 func init() {
-	enabledDrivers = append(enabledDrivers, "postgres")
+	EnabledDrivers = append(EnabledDrivers, "postgres")
 }

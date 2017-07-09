@@ -5,5 +5,5 @@ package db
 import _ "github.com/jinzhu/gorm/dialects/sqlite" // nolint: golint
 
 func init() {
-	enabledDrivers = append(enabledDrivers, "sqlite3")
+	EnabledDrivers = append(EnabledDrivers, "sqlite3")
 }

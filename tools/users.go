@@ -34,26 +34,39 @@ func (usersTool) Description() string {
 
 func (t *usersTool) Run(args []string) {
 	fs := flag.NewFlagSet("users", flag.ExitOnError)
-	configFile := fs.String("c", "", "thestral2 configuration file")
+	configFile := fs.String("c", "", "thestral2 configuration file.")
+	driver := fs.String("driver", "",
+		"database driver. Can't be used with -c. Available drivers: "+
+			strings.Join(db.EnabledDrivers, ", "))
+	dsn := fs.String("dsn", "", "database source. Must be used with -driver.")
+
+	var dbConfig db.Config
 	if fs.Parse(args[1:]) == flag.ErrHelp {
 		fs.Usage()
-	} else if *configFile == "" {
-		_, _ = fmt.Fprintf(
-			os.Stderr, "Error: a configuration file is needed\n\n")
+	} else if *configFile != "" {
+		if *driver != "" || *dsn != "" {
+			panic("-c can't be used with -driver or -dsn")
+		} else if config, err := lib.ParseConfigFile(*configFile); err != nil {
+			panic(err)
+		} else if config.DB == nil {
+			panic("'db' is not specified in the configuration file")
+		} else {
+			dbConfig = *config.DB
+		}
+	} else if *driver != "" && *dsn != "" {
+		dbConfig.Driver = *driver
+		dbConfig.DSN = *dsn
+	} else {
 		fs.Usage()
 		os.Exit(0)
 	}
 
-	config, err := lib.ParseConfigFile(*configFile)
-	if err != nil {
-		panic(err)
-	} else if config.DB == nil {
-		panic("'db' is not specified in the configuration file")
-	} else if err = db.InitDB(*config.DB); err != nil {
+	if err := db.InitDB(dbConfig); err != nil {
 		panic(err)
 	} else if t.dao, err = db.NewUserDAO(); err != nil {
 		panic(err)
 	}
+	defer t.dao.Close() // nolint: errcheck
 
 	if err := t.setupConsole("users> "); err != nil {
 		panic(err)

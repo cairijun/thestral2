@@ -5,5 +5,5 @@ package db
 import _ "github.com/jinzhu/gorm/dialects/mysql" // nolint: golint
 
 func init() {
-	enabledDrivers = append(enabledDrivers, "mysql")
+	EnabledDrivers = append(EnabledDrivers, "mysql")
 }

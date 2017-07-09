@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	enabledDrivers []string
+	EnabledDrivers []string
 	dbConfig       *Config
 )
 
@@ -32,7 +32,7 @@ func InitDB(config Config) error {
 }
 
 func checkDriver(driver string) bool {
-	for _, d := range enabledDrivers {
+	for _, d := range EnabledDrivers {
 		if driver == d {
 			return true
 		}
