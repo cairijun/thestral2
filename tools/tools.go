@@ -33,7 +33,7 @@ func Init() {
 func Run(name string, args []string) {
 	for _, t := range allTools {
 		if t.Name() == name {
-			t.Run(args)
+			t.Run(args[1:])
 			return
 		}
 	}

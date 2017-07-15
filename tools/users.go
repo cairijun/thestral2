@@ -41,9 +41,8 @@ func (t *usersTool) Run(args []string) {
 	dsn := fs.String("dsn", "", "database source. Must be used with -driver.")
 
 	var dbConfig db.Config
-	if fs.Parse(args[1:]) == flag.ErrHelp {
-		fs.Usage()
-	} else if *configFile != "" {
+	fs.Parse(args)
+	if *configFile != "" {
 		if *driver != "" || *dsn != "" {
 			panic("-c can't be used with -driver or -dsn")
 		} else if config, err := lib.ParseConfigFile(*configFile); err != nil {
