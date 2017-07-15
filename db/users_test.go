@@ -147,7 +147,7 @@ func (s *UsersTestSuite) TestCheckUser() {
 }
 
 func TestUsersTestSuite(t *testing.T) {
-	if checkDriver("sqlite3") {
+	if CheckDriver("sqlite3") {
 		suite.Run(t, new(UsersTestSuite))
 	} else {
 		t.Skip("sqlite3 is not enabled")

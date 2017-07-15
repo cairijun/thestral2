@@ -1,4 +1,4 @@
-// +build !no_mysql,!no_db
+// +build !minimal full mysql
 
 package db
 

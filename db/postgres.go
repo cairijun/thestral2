@@ -1,4 +1,4 @@
-// +build !no_postgres,!no_db
+// +build !minimal full postgres
 
 package db
 

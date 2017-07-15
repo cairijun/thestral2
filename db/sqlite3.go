@@ -1,4 +1,4 @@
-// +build !no_sqlite3,!no_db
+// +build full sqlite3
 
 package db
 

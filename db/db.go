@@ -21,7 +21,7 @@ type Config struct {
 
 // InitDB initializes the database for later use.
 func InitDB(config Config) error {
-	if checkDriver(config.Driver) {
+	if CheckDriver(config.Driver) {
 		dbConfig = &config
 		db, err := getDB()
 		if err != nil {
@@ -35,7 +35,8 @@ func InitDB(config Config) error {
 		"driver '%s' is not supported or not enabled", config.Driver)
 }
 
-func checkDriver(driver string) bool {
+// CheckDriver checks if a database driver was built.
+func CheckDriver(driver string) bool {
 	for _, d := range EnabledDrivers {
 		if driver == d {
 			return true

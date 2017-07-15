@@ -20,6 +20,7 @@ type E2ETestSuite struct {
 	suite.Suite
 
 	// suite-level
+	dbCfg      *db.Config
 	tmpDir     string
 	locAddr    string
 	svrAddr    string
@@ -37,21 +38,9 @@ type E2ETestSuite struct {
 }
 
 func (s *E2ETestSuite) SetupSuite() {
-	var err error
-	s.tmpDir, err = ioutil.TempDir("", "thestral2_E2ETestSuite")
-	s.Require().NoError(err)
-	s.Require().NoError(db.InitDB(db.Config{
-		Driver: "sqlite3",
-		DSN:    path.Join(s.tmpDir, "test.db"),
-	}))
-	dao, err := db.NewUserDAO()
-	s.Require().NoError(err)
-	pwhash := db.HashUserPass("password")
-	s.Require().NoError(dao.Add(&db.User{
-		Scope: "proxy.socks5", Name: "user",
-		PWHash: &pwhash,
-	}))
-	s.Require().NoError(dao.Close())
+	if db.CheckDriver("sqlite3") {
+		s.initDB()
+	}
 
 	s.locAddr = "127.0.0.1:64892"
 	s.svrAddr = "127.0.0.1:64893"
@@ -60,7 +49,7 @@ func (s *E2ETestSuite) SetupSuite() {
 		Downstreams: map[string]ProxyConfig{"local": {
 			Protocol: "socks5",
 			Settings: map[string]interface{}{
-				"address": s.locAddr, "check_users": true,
+				"address": s.locAddr, "check_users": s.dbCfg != nil,
 			},
 		}},
 		Upstreams: map[string]ProxyConfig{"proxy": {
@@ -76,6 +65,7 @@ func (s *E2ETestSuite) SetupSuite() {
 			},
 			Settings: map[string]interface{}{"address": s.svrAddr, "simplified": true},
 		}},
+		DB:      s.dbCfg,
 		Logging: LoggingConfig{Level: "fatal"},
 	}
 	s.svrConfig = &Config{
@@ -119,8 +109,29 @@ func (s *E2ETestSuite) SetupSuite() {
 }
 
 func (s *E2ETestSuite) TearDownSuite() {
-	_ = os.RemoveAll(s.tmpDir)
+	if s.tmpDir != "" {
+		_ = os.RemoveAll(s.tmpDir)
+	}
 	_ = s.targetSvr.Close()
+}
+
+func (s *E2ETestSuite) initDB() {
+	var err error
+	s.tmpDir, err = ioutil.TempDir("", "thestral2_E2ETestSuite")
+	s.Require().NoError(err)
+	s.dbCfg = &db.Config{
+		Driver: "sqlite3",
+		DSN:    path.Join(s.tmpDir, "test.db"),
+	}
+	s.Require().NoError(db.InitDB(*s.dbCfg))
+	dao, err := db.NewUserDAO()
+	s.Require().NoError(err)
+	pwhash := db.HashUserPass("password")
+	s.Require().NoError(dao.Add(&db.User{
+		Scope: "proxy.socks5", Name: "user",
+		PWHash: &pwhash,
+	}))
+	s.Require().NoError(dao.Close())
 }
 
 func (s *E2ETestSuite) SetupTest() {
@@ -177,6 +188,9 @@ func (s *E2ETestSuite) TestRelay() {
 }
 
 func (s *E2ETestSuite) TestNoUserPass() {
+	if s.dbCfg == nil {
+		s.T().Skip("database driver 'sqlite3' is not enabled")
+	}
 	cli, err := CreateProxyClient(ProxyConfig{
 		Protocol: "socks5",
 		Settings: map[string]interface{}{"address": s.locAddr},
@@ -191,6 +205,9 @@ func (s *E2ETestSuite) TestNoUserPass() {
 }
 
 func (s *E2ETestSuite) TestWrongUserPass() {
+	if s.dbCfg == nil {
+		s.T().Skip("database driver 'sqlite3' is not enabled")
+	}
 	cli, err := CreateProxyClient(ProxyConfig{
 		Protocol: "socks5",
 		Settings: map[string]interface{}{

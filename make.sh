@@ -36,23 +36,25 @@ if [[ "$EXT_VARS" != "" ]]; then
     GO_ARGS="-ldflags '$EXT_VARS'"
 fi
 
-if [[ $# == 0 ]]; then
+if [[ $# == 0 ]] || [[ $1 == \-* ]]; then
     cmd="build"
 else
     cmd="$1"
     shift
 fi
 
+EXTRA_ARGS=$(printf "'%s' " "$@")
+
 case $cmd in
     "help")
         echo "$0 [(help | build | test | install) [extra_args...]]"
         exit 0 ;;
     "build")
-        CMD="go build $GO_ARGS $*" ;;
+        CMD="go build $GO_ARGS $EXTRA_ARGS" ;;
     "test")
-        CMD="go test $GO_ARGS $* -p 1 ./..." ;;
+        CMD="go test $GO_ARGS $EXTRA_ARGS -p 1 ./..." ;;
     "install")
-        CMD="go install $GO_ARGS $*" ;;
+        CMD="go install $GO_ARGS $EXTRA_ARGS" ;;
     *)
         error "unknown command '$cmd'"
         exit 1 ;;

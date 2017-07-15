@@ -87,7 +87,7 @@ func NewSOCKS5Server(
 	if c, ok := config.Settings["check_users"]; ok {
 		if checkUser, ok = c.(bool); !ok {
 			return nil, errors.New("invalid value for 'check_users'")
-		} else if !db.Inited {
+		} else if checkUser && !db.Inited {
 			return nil, errors.New("user checking requires a database specified")
 		}
 	}
