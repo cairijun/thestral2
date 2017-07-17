@@ -145,7 +145,8 @@ type stdConsole struct {
 }
 
 func getStdConsole() (*stdConsole, error) {
-	s, err := terminal.MakeRaw(syscall.Stdin)
+	// syscall.Stdin is a uintptr on Windows
+	s, err := terminal.MakeRaw(int(syscall.Stdin))
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -161,5 +162,5 @@ func (*stdConsole) Write(p []byte) (int, error) {
 }
 
 func (c *stdConsole) Close() error {
-	return terminal.Restore(syscall.Stdin, c.oldState)
+	return terminal.Restore(int(syscall.Stdin), c.oldState)
 }
