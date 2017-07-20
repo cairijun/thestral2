@@ -1,0 +1,28 @@
+version: 2
+jobs:
+  build:
+    working_directory: /go/src/github.com/richardtsai/thestral2
+    docker:
+      - image: circleci/golang:1.8
+    steps:
+      - checkout
+      - run:
+          name: Prepare the environment
+          command: |
+            mkdir /tmp/test_results
+            go get github.com/jstemmer/go-junit-report
+            go get -t -d --tags=full .
+      - run:
+          name: Run tests
+          command: |
+            set -o pipefail
+            ./make.sh test -v -race --tags=full | go-junit-report > /tmp/test_results/report.xml
+      - store_test_results:
+          path: /tmp/test_results
+      - run:
+          name: Build
+          command: |
+            ./make.sh build --tags=full -o /tmp/thestral2
+      - store_artifacts:
+          path: /tmp/thestral2
+          destination: thestral2

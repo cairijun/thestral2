@@ -93,7 +93,7 @@ func doTestWithTransConf(t *testing.T, svrConfig, cliConfig *TransportConfig) {
 			client, err := cliTrans.Dial(context.Background(), address)
 			require.NoError(t, err)
 			defer client.Close() // nolint: errcheck
-			_ = client.SetDeadline(time.Now().Add(10 * time.Second))
+			_ = client.SetDeadline(time.Now().Add(30 * time.Second))
 
 			for _, data := range getRandomData() {
 				_, err := client.Write(data)

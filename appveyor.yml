@@ -1,0 +1,47 @@
+version: UNKNOWN.{build}
+init:
+- ps: |
+    Set-AppveyorBuildVariable -Name Path -Value "$(go env GOPATH)\bin;$Env:Path"
+    Get-ChildItem Env:
+    go env
+environment:
+  Path: C:\mingw-w64\x86_64-6.3.0-posix-seh-rt_v5-rev1\mingw64\bin;%PATH%
+install:
+- ps: |
+    $version = git describe --always --dirty
+    $build = $Env:APPVEYOR_BUILD_NUMBER
+    Update-AppveyorBuild -Version "$version-$build"
+    go get -t -d --tags=full .
+    go get github.com/jstemmer/go-junit-report
+build_script:
+- ps: |
+    $version = git describe --always --dirty
+    $time = Get-Date -UFormat '%a, %d %b %Y %T %Z'
+    $ldflags = "-X `'github.com/richardtsai/thestral2/lib.ThestralVersion=$version`' -X `'github.com/richardtsai/thestral2/lib.ThestralBuiltTime=$time`'"
+    gcc --version
+    go version
+    go build -ldflags """$ldflags""" --tags=full
+    .\thestral2 version
+test_script:
+- ps: |
+    go test -v --tags=full -race -p 1 ./... > report.out
+    $test_exit_status = $lastexitcode
+    echo $test_exit_status
+    cat report.out | go-junit-report 1> report.xml
+    $wc = New-Object 'System.Net.WebClient'
+    $wc.UploadFile("https://ci.appveyor.com/api/testresults/junit/$($env:APPVEYOR_JOB_ID)", (Resolve-Path .\report.xml))
+    if ($test_exit_status -ne 0) {
+        exit $test_exit_status
+    }
+artifacts:
+- path: thestral2.exe
+  name: Pre-built binary for Windows x64
+deploy:
+- provider: GitHub
+  description: AppVeyor auto release
+  auth_token:
+    secure: uvKDZgEcmgQdvVU4wC+d15FppH0OAbFhLLT0HS/qgZvmprzES15PgiQr8BgTbfk3
+  artifact: /Pre-built binary.*/
+  draft: true
+  on:
+    appveyor_repo_tag: true

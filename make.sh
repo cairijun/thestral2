@@ -1,19 +1,19 @@
 #!/bin/bash
 
 function warn() {
-    echo -e "\033[1;33mWARN: $*\033[0m"
+    >&2 echo -e "\033[1;33mWARN: $*\033[0m"
 }
 
 function error() {
-    echo -e "\033[0;31mERROR: $*\033[0m"
+    >&2 echo -e "\033[0;31mERROR: $*\033[0m"
 }
 
 function info() {
-    echo -e "\033[0;37mINFO: $*\033[0m"
+    >&2 echo -e "\033[0;37mINFO: $*\033[0m"
 }
 
 function success() {
-    echo -e "\033[0;32m$*\033[0m"
+    >&2 echo -e "\033[0;32m$*\033[0m"
 }
 
 COMM_PKG="github.com/richardtsai/thestral2/lib"
@@ -43,7 +43,9 @@ else
     shift
 fi
 
-EXTRA_ARGS=$(printf "'%s' " "$@")
+if [[ $# > 0 ]]; then
+    EXTRA_ARGS=$(printf "'%s' " "$@")
+fi
 
 case $cmd in
     "help")
