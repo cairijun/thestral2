@@ -142,12 +142,13 @@ func (s *E2ETestSuite) SetupTest() {
 	s.locApp, err = NewThestralApp(*s.locConfig)
 	s.Require().NoError(err)
 
-	go func() {
-		s.Assert().NoError(s.svrApp.Run(s.appCtx))
-	}()
-	go func() {
-		s.Assert().NoError(s.locApp.Run(s.appCtx))
-	}()
+	runApp := func(appCtx context.Context, app *Thestral) {
+		// no error checking here because referencing to s.Xxxx will lead to
+		// false positive in the race detector.
+		_ = app.Run(appCtx)
+	}
+	go runApp(s.appCtx, s.svrApp)
+	go runApp(s.appCtx, s.locApp)
 	time.Sleep(time.Millisecond * 100) // ensure the servers are started
 
 	s.cli, err = CreateProxyClient(ProxyConfig{
