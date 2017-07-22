@@ -6,6 +6,7 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	"sync"
 	"testing"
 
 	. "github.com/richardtsai/thestral2/lib"
@@ -35,7 +36,8 @@ func (s *HTTPTunnelTestSuite) SetupTest() {
 }
 
 func (s *HTTPTunnelTestSuite) mockServer(
-	l net.Listener, code int, svrSend bool) {
+	wg *sync.WaitGroup, l net.Listener, code int, svrSend bool) {
+	defer wg.Done()
 	reqBuf := make([]byte, len(s.expReq))
 
 	conn, err := l.Accept()
@@ -71,11 +73,15 @@ func (s *HTTPTunnelTestSuite) mockServer(
 }
 
 func (s *HTTPTunnelTestSuite) doTest(code int, svrSend bool) {
+	var wg sync.WaitGroup
+	defer wg.Wait()
+
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	s.Require().NoError(err)
 	defer l.Close() // nolint: errcheck
 
-	go s.mockServer(l, code, svrSend)
+	wg.Add(1)
+	go s.mockServer(&wg, l, code, svrSend)
 
 	cfg := ProxyConfig{
 		Protocol: "http",
