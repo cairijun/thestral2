@@ -1,4 +1,4 @@
-package main
+package lib
 
 import (
 	"context"
@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	. "github.com/richardtsai/thestral2/lib"
 )
 
 const defaultTLSHandshakeTimeout = time.Minute * 1

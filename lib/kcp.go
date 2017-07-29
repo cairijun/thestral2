@@ -1,4 +1,4 @@
-package main
+package lib
 
 import (
 	"context"
@@ -9,21 +9,20 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	. "github.com/richardtsai/thestral2/lib"
 	"github.com/xtaci/kcp-go"
 )
 
 // KCPTransport is a connection-aware Transport based on the KCP protocol.
 // Closing a connection will notify the peer end on a best-efforts basis.
 type KCPTransport struct {
-	kcpNoDelay      int
-	kcpInterval     int
-	kcpResend       int
-	kcpNc           int
-	kcpSndWnd       int
-	kcpRcvWnd       int
-	kcpDataShards   int
-	kcpParityShards int
+	noDelay      int
+	interval     int
+	resend       int
+	nc           int
+	sndWnd       int
+	rcvWnd       int
+	dataShards   int
+	parityShards int
 }
 
 // NewKCPTransport creates KCPTransport with a given configuration.
@@ -32,33 +31,33 @@ func NewKCPTransport(config KCPConfig) (*KCPTransport, error) {
 	t := new(KCPTransport)
 	switch config.Mode {
 	case "", "normal":
-		t.kcpNoDelay, t.kcpInterval, t.kcpResend, t.kcpNc = 0, 25, 0, 0
+		t.noDelay, t.interval, t.resend, t.nc = 0, 25, 0, 0
 	case "fast":
-		t.kcpNoDelay, t.kcpInterval, t.kcpResend, t.kcpNc = 0, 25, 2, 1
+		t.noDelay, t.interval, t.resend, t.nc = 0, 25, 2, 1
 	case "fast2":
-		t.kcpNoDelay, t.kcpInterval, t.kcpResend, t.kcpNc = 1, 10, 2, 1
+		t.noDelay, t.interval, t.resend, t.nc = 1, 10, 2, 1
 	default:
 		return nil, errors.New("invalid KCP mode: " + config.Mode)
 	}
 
 	switch config.Optimize {
 	case "", "balance":
-		t.kcpSndWnd, t.kcpRcvWnd = 512, 512
+		t.sndWnd, t.rcvWnd = 512, 512
 	case "send":
-		t.kcpSndWnd, t.kcpRcvWnd = 256, 1024
+		t.sndWnd, t.rcvWnd = 256, 1024
 	case "receive":
-		t.kcpSndWnd, t.kcpRcvWnd = 1024, 256
+		t.sndWnd, t.rcvWnd = 1024, 256
 	default:
 		return nil, errors.New("invalid optimization: " + config.Optimize)
 	}
 
 	if config.FEC {
 		if config.FECDist == "" {
-			t.kcpDataShards = 10
-			t.kcpParityShards = 2
+			t.dataShards = 10
+			t.parityShards = 2
 		} else {
 			_, err := fmt.Sscanf(
-				config.FECDist, "%d,%d", &t.kcpDataShards, &t.kcpParityShards)
+				config.FECDist, "%d,%d", &t.dataShards, &t.parityShards)
 			if err != nil {
 				return nil, errors.Wrap(err, "invalid FEC distribution")
 			}
@@ -80,7 +79,7 @@ func (t *KCPTransport) Dial(
 
 	go func() {
 		kcpConn, err := kcp.DialWithOptions(
-			address, nil, t.kcpDataShards, t.kcpParityShards)
+			address, nil, t.dataShards, t.parityShards)
 		if err != nil {
 			resultCh <- result{nil, err}
 		} else {
@@ -102,7 +101,7 @@ func (t *KCPTransport) Dial(
 // Listen creates a KCP listener on a given address.
 func (t *KCPTransport) Listen(address string) (net.Listener, error) {
 	listener, err := kcp.ListenWithOptions(
-		address, nil, t.kcpDataShards, t.kcpParityShards)
+		address, nil, t.dataShards, t.parityShards)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -121,9 +120,9 @@ const (
 )
 
 func (t *KCPTransport) wrapKCPConn(kcpConn *kcp.UDPSession) *kcpConnWrapper {
-	kcpConn.SetNoDelay(t.kcpNoDelay, t.kcpInterval, t.kcpResend, t.kcpNc)
+	kcpConn.SetNoDelay(t.noDelay, t.interval, t.resend, t.nc)
 	kcpConn.SetStreamMode(true)
-	kcpConn.SetWindowSize(t.kcpSndWnd, t.kcpRcvWnd)
+	kcpConn.SetWindowSize(t.sndWnd, t.rcvWnd)
 	wrapped := new(kcpConnWrapper)
 	wrapped.UDPSession = kcpConn
 	wrapped.rdDataLeft = 0

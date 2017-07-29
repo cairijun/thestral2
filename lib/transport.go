@@ -1,11 +1,10 @@
-package main
+package lib
 
 import (
 	"context"
 	"net"
 
 	"github.com/pkg/errors"
-	"github.com/richardtsai/thestral2/lib"
 )
 
 // Transport provides the server and client sides operation on some
@@ -35,7 +34,7 @@ func (TCPTransport) Listen(address string) (net.Listener, error) {
 
 // CreateTransport creates a Transport according to the given configuration.
 func CreateTransport(
-	config *lib.TransportConfig) (transport Transport, err error) {
+	config *TransportConfig) (transport Transport, err error) {
 	// default is TCP
 	if config == nil {
 		return TCPTransport{}, nil

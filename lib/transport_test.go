@@ -1,4 +1,4 @@
-package main
+package lib
 
 import (
 	"bytes"
@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/richardtsai/thestral2/lib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -29,15 +28,15 @@ var gKCPClientConfig = &KCPConfig{
 	FEC:      true,
 }
 var gTLSClientConfig = &TLSConfig{
-	Cert: "test_files/test.pem",
-	Key:  "test_files/test.key.pem",
-	CAs:  []string{"test_files/ca.pem"},
+	Cert: "../test_files/test.pem",
+	Key:  "../test_files/test.key.pem",
+	CAs:  []string{"../test_files/ca.pem"},
 }
 var gTLSServerConfig = &TLSConfig{
-	Cert:         "test_files/test.server.pem",
-	Key:          "test_files/test.server.key.pem",
+	Cert:         "../test_files/test.server.pem",
+	Key:          "../test_files/test.server.key.pem",
 	VerifyClient: true,
-	ClientCAs:    []string{"test_files/ca.pem"},
+	ClientCAs:    []string{"../test_files/ca.pem"},
 }
 
 func TestTransportDefault(t *testing.T) {

@@ -1,4 +1,4 @@
-package main
+package lib
 
 import (
 	"bytes"
@@ -10,7 +10,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/richardtsai/thestral2/db"
-	. "github.com/richardtsai/thestral2/lib"
 	"go.uber.org/zap"
 )
 

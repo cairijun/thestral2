@@ -1,4 +1,4 @@
-package main
+package lib
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"net"
 	"testing"
 
-	"github.com/richardtsai/thestral2/lib"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,8 +36,8 @@ func TestProxiedTransport(t *testing.T) {
 	defer targetSvr.Close() // nolint: errcheck
 	addr := targetSvr.Addr().String()
 
-	trans, err := CreateTransport(&lib.TransportConfig{
-		Proxied: &lib.ProxyConfig{Protocol: "direct"},
+	trans, err := CreateTransport(&TransportConfig{
+		Proxied: &ProxyConfig{Protocol: "direct"},
 	})
 	require.NoError(t, err)
 
