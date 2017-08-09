@@ -40,6 +40,7 @@ type TLSConfig struct {
 	CAs              []string `yaml:"cas"`
 	ExtraCAs         []string `yaml:"extra_cas"`
 	ClientCAs        []string `yaml:"client_cas"`
+	SessionCacheSize int      `yaml:"session_cache_size"`
 	HandshakeTimeout string   `yaml:"handshake_timeout"`
 }
 

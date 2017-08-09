@@ -86,6 +86,9 @@ func NewTLSTransport(config TLSConfig, inner Transport) (*TLSTransport, error) {
 		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
 	}
 
+	tc.ClientSessionCache = tls.NewLRUClientSessionCache(
+		config.SessionCacheSize)
+
 	if config.HandshakeTimeout != "" {
 		t, err := time.ParseDuration(config.HandshakeTimeout)
 		if err != nil {
