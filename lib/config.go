@@ -45,10 +45,12 @@ type TLSConfig struct {
 
 // KCPConfig contains configuration about the KCP protocol.
 type KCPConfig struct {
-	Mode     string `yaml:"mode"`
-	Optimize string `yaml:"optimize"`
-	FEC      bool   `yaml:"fec"`
-	FECDist  string `yaml:"fec_dist"`
+	Mode              string `yaml:"mode"`
+	Optimize          string `yaml:"optimize"`
+	FEC               bool   `yaml:"fec"`
+	FECDist           string `yaml:"fec_dist"`
+	KeepAliveInterval string `yaml:"keep_alive_interval"`
+	KeepAliveTimeout  string `yaml:"keep_alive_timeout"`
 }
 
 // RuleConfig describes how to dispatch proxy requests.

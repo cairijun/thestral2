@@ -61,7 +61,10 @@ func (s *E2ETestSuite) SetupSuite() {
 					Key:  "test_files/test.key.pem",
 					CAs:  []string{"test_files/ca.pem"},
 				},
-				KCP: &KCPConfig{Mode: "fast2", Optimize: "receive", FEC: true},
+				KCP: &KCPConfig{
+					Mode: "fast2", Optimize: "receive", FEC: true,
+					KeepAliveInterval: "1s", KeepAliveTimeout: "3s",
+				},
 			},
 			Settings: map[string]interface{}{"address": s.svrAddr, "simplified": true},
 		}},
@@ -79,7 +82,10 @@ func (s *E2ETestSuite) SetupSuite() {
 					VerifyClient: true,
 					ClientCAs:    []string{"test_files/ca.pem"},
 				},
-				KCP: &KCPConfig{Mode: "fast2", Optimize: "send", FEC: true},
+				KCP: &KCPConfig{
+					Mode: "fast2", Optimize: "receive", FEC: true,
+					KeepAliveInterval: "1s", KeepAliveTimeout: "3s",
+				},
 			},
 			Settings: map[string]interface{}{
 				"address": s.svrAddr, "simplified": true, "handshake_timeout": "1s"},
