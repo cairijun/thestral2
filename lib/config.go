@@ -2,7 +2,11 @@ package lib
 
 import (
 	"io/ioutil"
+	"os"
+	"path/filepath"
+	"runtime"
 
+	"github.com/pkg/errors"
 	"github.com/richardtsai/thestral2/db"
 	"gopkg.in/yaml.v2"
 )
@@ -75,7 +79,16 @@ type MiscConfig struct {
 }
 
 // ParseConfigFile parses a given configuration file into a Config struct.
+// If an empty string is given, the configuration file will be searched
+// in some default locations.
 func ParseConfigFile(configFile string) (*Config, error) {
+	var err error
+	if configFile == "" {
+		if configFile, err = getDefaultConfigFile(); err != nil {
+			return nil, err
+		}
+	}
+
 	configData, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		return nil, err
@@ -88,4 +101,24 @@ func ParseConfigFile(configFile string) (*Config, error) {
 	}
 
 	return &config, nil
+}
+
+func getDefaultConfigFile() (string, error) {
+	candidates := []string{
+		"thestral2.yml",
+		filepath.Join(GetHomePath(), ".thestral2.yml"),
+	}
+	if runtime.GOOS != "windows" {
+		candidates = append(candidates,
+			"/usr/local/etc/thestral2.yml",
+			"/usr/local/etc/thestral2/config.yml",
+			"/usr/etc/thestral2.yml",
+			"/usr/etc/thestral2/config.yml")
+	}
+	for _, c := range candidates {
+		if s, err := os.Stat(c); err == nil && s.Mode().IsRegular() {
+			return c, nil
+		}
+	}
+	return "", errors.New("no config file found in the default locations")
 }

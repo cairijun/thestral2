@@ -5,11 +5,10 @@ import (
 	"flag"
 	"fmt"
 	"math/rand"
-	"os"
-	"time"
-
 	"net/http"
 	_ "net/http/pprof"
+	"os"
+	"time"
 
 	"github.com/richardtsai/thestral2/lib"
 	"github.com/richardtsai/thestral2/tools"
@@ -35,16 +34,18 @@ func main() {
 		return
 	}
 
-	configFile := flag.String("c", "", "configuration file")
+	configFile := flag.String(
+		"c", "", "configuration file. "+
+			"Will be searched in some default locations if not specified.")
 	flag.Parse()
-
-	if *configFile == "" {
-		printUsage()
-		os.Exit(0)
-	}
 
 	config, err := lib.ParseConfigFile(*configFile)
 	if err != nil {
+		if *configFile == "" {
+			_, _ = fmt.Fprintln(os.Stderr, err.Error())
+			flag.Usage()
+			os.Exit(1)
+		}
 		panic(err)
 	}
 

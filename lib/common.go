@@ -2,6 +2,8 @@ package lib
 
 import (
 	"net"
+	"os"
+	"runtime"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -153,4 +155,22 @@ func CreateLogger(config LoggingConfig) (*zap.SugaredLogger, error) {
 		return nil, err
 	}
 	return logger.Sugar(), nil
+}
+
+// GetHomePath returns the home path of the current user.
+func GetHomePath() string {
+	if runtime.GOOS == "windows" {
+		if p := os.Getenv("HOME"); p != "" {
+			return p
+		} else if p := os.Getenv("USERPROFILE"); p != "" {
+			return p
+		}
+		d := os.Getenv("HOMEDRIVE")
+		p := os.Getenv("HOMEPATH")
+		if d != "" && p != "" {
+			return d + p
+		}
+		return ""
+	}
+	return os.Getenv("HOME")
 }

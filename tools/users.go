@@ -3,7 +3,6 @@ package tools
 import (
 	"flag"
 	"fmt"
-	"os"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -42,22 +41,20 @@ func (t *usersTool) Run(args []string) {
 
 	var dbConfig db.Config
 	fs.Parse(args)
-	if *configFile != "" {
-		if *driver != "" || *dsn != "" {
-			panic("-c can't be used with -driver or -dsn")
-		} else if config, err := lib.ParseConfigFile(*configFile); err != nil {
-			panic(err)
-		} else if config.DB == nil {
-			panic("'db' is not specified in the configuration file")
-		} else {
-			dbConfig = *config.DB
+	if (*driver == "") != (*dsn == "") {
+		panic("-driver must be used with -dsn")
+	} else if *driver != "" {
+		if *configFile != "" {
+			panic("-c must not be used with -driver and -dsn")
 		}
-	} else if *driver != "" && *dsn != "" {
 		dbConfig.Driver = *driver
 		dbConfig.DSN = *dsn
+	} else if config, err := lib.ParseConfigFile(*configFile); err != nil {
+		panic(err)
+	} else if config.DB == nil {
+		panic("'db' is not specified in the configuration file")
 	} else {
-		fs.Usage()
-		os.Exit(0)
+		dbConfig = *config.DB
 	}
 
 	if err := db.InitDB(dbConfig); err != nil {
