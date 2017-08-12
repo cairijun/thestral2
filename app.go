@@ -163,9 +163,9 @@ func (t *Thestral) processRequests(
 			}
 			req.Logger().Infow("request accepted",
 				"downstream", dsName,
-				"client_addr", req.PeerAddr(),
+				"clientAddr", req.PeerAddr(),
 				"target", req.TargetAddr(),
-				"user_ids", peerIDs)
+				"userIDs", peerIDs)
 			go t.processOneRequest(ctx, req)
 		case <-ctx.Done():
 			return
@@ -235,14 +235,14 @@ func (t *Thestral) doRelay(
 		n, err := t.relayHalf(dst, src)
 		if err == nil { // src closed
 			req.Logger().Infow(
-				"connection closed", "src", srcName, "bytes_transferred", n)
+				"connection closed", "src", srcName, "bytesTransferred", n)
 		} else if relayCtx.Err() == context.Canceled { // other direction closed
 			req.Logger().Infow(
-				"relay ended", "src", srcName, "bytes_transferred", n)
+				"relay ended", "src", srcName, "bytesTransferred", n)
 		} else { // error
 			req.Logger().Warnw(
 				"error occurred",
-				"error", err, "src", srcName, "bytes_transferred", n)
+				"error", err, "src", srcName, "bytesTransferred", n)
 		}
 	}
 

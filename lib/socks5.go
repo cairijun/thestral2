@@ -235,12 +235,12 @@ func (s *SOCKS5Server) handshake(cli *socks5Request) {
 	if err == nil {
 		cli.log.Debugw(
 			"handshake with SOCKS5 client succeeded",
-			"target", cli.targetAddr, "user_ids", peerIDs)
+			"target", cli.targetAddr, "userIDs", peerIDs)
 		s.reqCh <- cli
 	} else {
 		cli.log.Warnw(
 			"handshake with SOCKS5 client failed",
-			"error", err, "user_ids", peerIDs, "client_addr", cli.PeerAddr())
+			"error", err, "userIDs", peerIDs, "clientAddr", cli.PeerAddr())
 		_ = cli.conn.Close()
 	}
 }
