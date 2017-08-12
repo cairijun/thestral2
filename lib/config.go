@@ -82,7 +82,7 @@ func ParseConfigFile(configFile string) (*Config, error) {
 	}
 
 	var config Config
-	err = yaml.Unmarshal(configData, &config)
+	err = yaml.UnmarshalStrict(configData, &config)
 	if err != nil {
 		return nil, err
 	}
