@@ -91,6 +91,7 @@ func (certReqTools) saveAsPEM(
 	if err != nil {
 		panic(err)
 	}
+	defer f.Close() // nolint: errcheck
 	pemBlock := &pem.Block{Type: pemType, Bytes: der}
 	if err = pem.Encode(f, pemBlock); err != nil {
 		panic(err)

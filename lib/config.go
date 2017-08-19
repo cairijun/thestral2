@@ -19,6 +19,10 @@ type Config struct {
 	Logging     LoggingConfig          `yaml:"logging"`
 	DB          *db.Config             `yaml:"db"`
 	Misc        MiscConfig             `yaml:"misc"`
+
+	// DEFAULTS field allows the users to define arbitrary data that can be
+	// referenced elsewhere. It is not used by the program directly.
+	DEFAULTS map[string]interface{} `yaml:",inline"`
 }
 
 // ProxyConfig describes a proxy protocol.
