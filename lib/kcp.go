@@ -51,11 +51,13 @@ func NewKCPTransport(config KCPConfig) (*KCPTransport, error) {
 
 	switch config.Optimize {
 	case "", "balance":
-		t.sndWnd, t.rcvWnd = 512, 512
-	case "send":
-		t.sndWnd, t.rcvWnd = 256, 1024
+		t.sndWnd, t.rcvWnd = 256, 256
 	case "receive":
-		t.sndWnd, t.rcvWnd = 1024, 256
+		t.sndWnd, t.rcvWnd = 128, 512
+	case "send":
+		t.sndWnd, t.rcvWnd = 512, 128
+	case "server":
+		t.sndWnd, t.rcvWnd = 1024, 1024
 	default:
 		return nil, errors.New("invalid optimization: " + config.Optimize)
 	}
