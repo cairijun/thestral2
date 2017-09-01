@@ -117,7 +117,9 @@ func getDefaultConfigFile() (string, error) {
 			"/usr/local/etc/thestral2.yml",
 			"/usr/local/etc/thestral2/config.yml",
 			"/usr/etc/thestral2.yml",
-			"/usr/etc/thestral2/config.yml")
+			"/usr/etc/thestral2/config.yml",
+			"/etc/thestral2.yml",
+			"/etc/thestral2/config.yml")
 	}
 	for _, c := range candidates {
 		if s, err := os.Stat(c); err == nil && s.Mode().IsRegular() {
