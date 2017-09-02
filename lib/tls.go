@@ -206,9 +206,11 @@ func makePeerIdentifier(connState tls.ConnectionState) *PeerIdentifier {
 			UniqueID: hex.EncodeToString(fingerprint[:]),
 			Name:     cert.Subject.CommonName,
 			ExtraInfo: map[string]interface{}{
-				"tlsIssuedBy":   cert.Issuer.CommonName,
-				"tlsValidFrom":  cert.NotBefore,
-				"tlsValidUntil": cert.NotAfter},
+				"issuedBy":   cert.Issuer.CommonName,
+				"validFrom":  cert.NotBefore,
+				"validUntil": cert.NotAfter,
+				"resume":     connState.DidResume,
+			},
 		}
 	}
 	return nil
