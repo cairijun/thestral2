@@ -34,6 +34,10 @@ type KCPTransport struct {
 	connsMtx sync.Mutex
 }
 
+// kcpCloseSendTimeout is the timeout for sending the kcpClose signal
+// when closing a connection.
+const kcpCloseSendTimeout = time.Second * 10
+
 // NewKCPTransport creates KCPTransport with a given configuration.
 func NewKCPTransport(config KCPConfig) (*KCPTransport, error) {
 	// var transport *KCPTransport
@@ -263,6 +267,7 @@ func (c *kcpConnWrapper) Write(b []byte) (int, error) {
 
 func (c *kcpConnWrapper) Close() error {
 	atomic.StoreInt64(&c.lastSend, 0) // indicate the conn is closed
+	_ = c.UDPSession.SetWriteDeadline(time.Now().Add(kcpCloseSendTimeout))
 	_, _ = c.UDPSession.Write([]byte{kcpClose})
 	return c.UDPSession.Close()
 }
