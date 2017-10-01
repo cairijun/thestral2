@@ -219,9 +219,14 @@ func (t *Thestral) processOneRequest(ctx context.Context, req ProxyRequest) {
 		return
 	}
 
+	var peerIDs []*PeerIdentifier
+	if wpi, ok := upConn.(WithPeerIdentifiers); ok {
+		peerIDs, _ = wpi.GetPeerIdentifiers()
+	}
 	req.Logger().Infow(
 		"connection established",
-		"addr", req.TargetAddr(), "boundAddr", boundAddr, "upstream", selected)
+		"addr", req.TargetAddr(), "boundAddr", boundAddr, "upstream", selected,
+		"serverIDs", peerIDs)
 	downRWC := req.Success(boundAddr)
 	t.doRelay(ctx, req, downRWC, upConn) // block
 }
