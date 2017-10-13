@@ -35,8 +35,11 @@ type KCPTransport struct {
 }
 
 // kcpCloseSendTimeout is the timeout for sending the kcpClose signal
-// when closing a connection.
-const kcpCloseSendTimeout = time.Second * 10
+// when closing a connection. This is a variable so that it can be altered
+// in tests, but it should be considered as a constant in the production code.
+var kcpCloseSendTimeout = time.Second * 10
+
+var kcpCloseLingerTimeout = time.Second * 10
 
 // NewKCPTransport creates KCPTransport with a given configuration.
 func NewKCPTransport(config KCPConfig) (*KCPTransport, error) {
@@ -62,6 +65,8 @@ func NewKCPTransport(config KCPConfig) (*KCPTransport, error) {
 		t.sndWnd, t.rcvWnd = 512, 128
 	case "server":
 		t.sndWnd, t.rcvWnd = 1024, 1024
+	case "_test_small":
+		t.sndWnd, t.rcvWnd = 32, 32
 	default:
 		return nil, errors.New("invalid optimization: " + config.Optimize)
 	}
@@ -163,11 +168,16 @@ func (t *KCPTransport) runKeepAliveManager() {
 			next := e.Next()
 			conn := e.Value.(*kcpConnWrapper)
 			lastSend := atomic.LoadInt64(&conn.lastSend)
-			lastBlockStart := atomic.LoadInt64(&conn.lastBlockStart)
+			lastReadStart := atomic.LoadInt64(&conn.lastReadStart)
+			lastWriteStart := atomic.LoadInt64(&conn.lastWriteStart)
 			if lastSend == 0 { // closed
 				t.conns.Remove(e)
-			} else if lastBlockStart > 0 && now-lastBlockStart > timeout {
-				// block time out, lost
+			} else if lastReadStart > 0 && now-lastReadStart > timeout {
+				// read time out, lost
+				t.conns.Remove(e)
+				go conn.Close() // nolint: errcheck
+			} else if lastWriteStart > 0 && now-lastWriteStart > timeout {
+				// write time out, lost
 				t.conns.Remove(e)
 				go conn.Close() // nolint: errcheck
 			} else if now-lastSend > interval { // long idle
@@ -184,10 +194,12 @@ type kcpConnWrapper struct {
 	rdMtx      sync.Mutex
 	rdDataLeft uint32
 
-	// UNIX ns epoch of last send time, 0 indicates the conn was closed
+	// UNIX ns time of last send time, 0 indicates the conn was closed
 	lastSend int64
-	// UNIX ns epoch of last received time
-	lastBlockStart int64
+	// UNIX ns time of the start time of last read operation.
+	lastReadStart int64
+	// UNIX ns time of the start time of last write operation.
+	lastWriteStart int64
 }
 
 const (
@@ -204,7 +216,8 @@ func (t *KCPTransport) wrapKCPConn(kcpConn *kcp.UDPSession) *kcpConnWrapper {
 	wrapped.UDPSession = kcpConn
 	wrapped.rdDataLeft = 0
 	wrapped.lastSend = time.Now().UnixNano()
-	wrapped.lastBlockStart = 0
+	wrapped.lastReadStart = 0
+	wrapped.lastWriteStart = 0
 
 	if t.conns != nil {
 		t.connsMtx.Lock()
@@ -262,6 +275,8 @@ func (c *kcpConnWrapper) Write(b []byte) (int, error) {
 	copy(buf[5:], b)
 
 	atomic.StoreInt64(&c.lastSend, time.Now().UnixNano())
+	atomic.StoreInt64(&c.lastWriteStart, time.Now().UnixNano())
+	defer atomic.StoreInt64(&c.lastWriteStart, 0)
 	return c.UDPSession.Write(buf)
 }
 
@@ -269,6 +284,7 @@ func (c *kcpConnWrapper) Close() error {
 	atomic.StoreInt64(&c.lastSend, 0) // indicate the conn is closed
 	_ = c.UDPSession.SetWriteDeadline(time.Now().Add(kcpCloseSendTimeout))
 	_, _ = c.UDPSession.Write([]byte{kcpClose})
+	time.Sleep(kcpCloseLingerTimeout)
 	return c.UDPSession.Close()
 }
 
@@ -280,8 +296,8 @@ func (c *kcpConnWrapper) sendKeepAlive() {
 }
 
 func (c *kcpConnWrapper) read(b []byte) (int, error) {
-	defer atomic.StoreInt64(&c.lastBlockStart, 0)
-	atomic.StoreInt64(&c.lastBlockStart, time.Now().UnixNano())
+	defer atomic.StoreInt64(&c.lastReadStart, 0)
+	atomic.StoreInt64(&c.lastReadStart, time.Now().UnixNano())
 	return c.UDPSession.Read(b)
 }
 

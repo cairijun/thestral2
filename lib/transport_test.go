@@ -83,14 +83,16 @@ func doTestWithTransConf(t *testing.T, svrConfig, cliConfig *TransportConfig) {
 	require.NoError(t, err)
 
 	exit := make(chan struct{})
-	go runEchoServer(t, listener, exit)
+	var svrWg sync.WaitGroup
+	svrWg.Add(1)
+	go runEchoServer(t, listener, exit, &svrWg)
 
-	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
+	var cliWg sync.WaitGroup
+	for i := 0; i < 1; i++ {
+		cliWg.Add(1)
 
 		go func() {
-			defer wg.Done()
+			defer cliWg.Done()
 			client, err := cliTrans.Dial(context.Background(), address)
 			require.NoError(t, err)
 			defer client.Close() // nolint: errcheck
@@ -109,9 +111,10 @@ func doTestWithTransConf(t *testing.T, svrConfig, cliConfig *TransportConfig) {
 		}()
 	}
 
-	wg.Wait()
+	cliWg.Wait()
 	close(exit)
 	_ = listener.Close()
+	svrWg.Wait()
 }
 
 func getRandomData(n int) [][]byte {
@@ -124,9 +127,13 @@ func getRandomData(n int) [][]byte {
 	return data
 }
 
-func runEchoServer(t *testing.T, listener net.Listener, exit <-chan struct{}) {
+func runEchoServer(
+	t *testing.T, listener net.Listener, exit <-chan struct{},
+	wg *sync.WaitGroup) {
+	defer wg.Done()
 	clientProc := func(client net.Conn) {
 		defer client.Close() // nolint: errcheck
+		defer wg.Done()
 		var buf [1024 * 32]byte
 		for {
 			n, err := client.Read(buf[:])
@@ -150,6 +157,7 @@ func runEchoServer(t *testing.T, listener net.Listener, exit <-chan struct{}) {
 		default:
 		}
 		if assert.NoError(t, err) {
+			wg.Add(1)
 			go clientProc(conn)
 		}
 	}
@@ -157,14 +165,24 @@ func runEchoServer(t *testing.T, listener net.Listener, exit <-chan struct{}) {
 
 type KCPKeepAliveTestSuite struct {
 	suite.Suite
-	svrTrans, cliTrans *KCPTransport
+	svrTrans, cliTrans   *KCPTransport
+	origCloseSendTimeout time.Duration
+}
+
+func (s *KCPKeepAliveTestSuite) SetupSuite() {
+	s.origCloseSendTimeout = kcpCloseSendTimeout
+	kcpCloseSendTimeout = 50 * time.Millisecond
+}
+
+func (s *KCPKeepAliveTestSuite) TearDownSuite() {
+	kcpCloseSendTimeout = s.origCloseSendTimeout
 }
 
 func (s *KCPKeepAliveTestSuite) SetupTest() {
 	var err error
 	s.svrTrans, err = NewKCPTransport(KCPConfig{
 		Mode:              "fast2",
-		Optimize:          "send",
+		Optimize:          "_test_small",
 		FEC:               true,
 		FECDist:           "10, 2",
 		KeepAliveInterval: "50ms",
@@ -173,7 +191,7 @@ func (s *KCPKeepAliveTestSuite) SetupTest() {
 	s.Require().NoError(err)
 	s.cliTrans, err = NewKCPTransport(KCPConfig{
 		Mode:              "fast2",
-		Optimize:          "receive",
+		Optimize:          "_test_small",
 		FEC:               true,
 		FECDist:           "10, 2",
 		KeepAliveInterval: "50ms",
@@ -283,6 +301,34 @@ func (s *KCPKeepAliveTestSuite) TestServerConnLost() {
 			buf := make([]byte, 1)
 			_, err = io.ReadFull(cli, buf)
 			s.Error(err)
+		}()
+	}
+
+	cliWg.Wait()
+	time.Sleep(100 * time.Millisecond)
+	_ = listener.Close()
+	svrWg.Wait()
+	time.Sleep(100 * time.Millisecond)
+}
+
+func (s *KCPKeepAliveTestSuite) TestSendBlock() {
+	listener, err := s.svrTrans.Listen("127.0.0.1:0")
+	s.Require().NoError(err)
+	addr := listener.Addr().String()
+	svrWg := sync.WaitGroup{}
+	s.startServer(&svrWg, listener, true, false)
+
+	cliWg := sync.WaitGroup{}
+	for i := 0; i < 5; i++ {
+		cliWg.Add(1)
+		go func() {
+			defer cliWg.Done()
+			cli, err := s.cliTrans.Dial(context.Background(), addr)
+			s.Require().NoError(err)
+			defer cli.Close() // nolint: errcheck
+			// send untill block, then wait until timeout
+			for ; err == nil; _, err = cli.Write([]byte("hello")) {
+			}
 		}()
 	}
 
