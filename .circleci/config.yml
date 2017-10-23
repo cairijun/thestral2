@@ -3,7 +3,7 @@ jobs:
   build:
     working_directory: /go/src/github.com/richardtsai/thestral2
     docker:
-      - image: circleci/golang:1.8
+      - image: circleci/golang:latest
     steps:
       - checkout
       - run:
