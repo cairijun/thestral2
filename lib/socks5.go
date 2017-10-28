@@ -159,8 +159,7 @@ func (s *SOCKS5Server) Start() (<-chan ProxyRequest, error) {
 			cliLogger := s.log.With("reqID", reqID).Named("client")
 			cliLogger.Debugw(
 				"client connection accepted", "addr", conn.RemoteAddr())
-			req := &socks5Request{
-				id: GetNextRequestID(), conn: conn, log: cliLogger}
+			req := &socks5Request{id: reqID, conn: conn, log: cliLogger}
 
 			go s.handshake(req)
 		}
