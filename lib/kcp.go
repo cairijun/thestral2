@@ -284,8 +284,11 @@ func (c *kcpConnWrapper) Close() error {
 	atomic.StoreInt64(&c.lastSend, 0) // indicate the conn is closed
 	_ = c.UDPSession.SetWriteDeadline(time.Now().Add(kcpCloseSendTimeout))
 	_, _ = c.UDPSession.Write([]byte{kcpClose})
-	time.Sleep(kcpCloseLingerTimeout)
-	return c.UDPSession.Close()
+	go func() {
+		time.Sleep(kcpCloseLingerTimeout)
+		c.UDPSession.Close()
+	}()
+	return nil
 }
 
 func (c *kcpConnWrapper) sendKeepAlive() {

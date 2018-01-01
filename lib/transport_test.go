@@ -88,7 +88,7 @@ func doTestWithTransConf(t *testing.T, svrConfig, cliConfig *TransportConfig) {
 	go runEchoServer(t, listener, exit, &svrWg)
 
 	var cliWg sync.WaitGroup
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 10; i++ {
 		cliWg.Add(1)
 
 		go func() {
@@ -113,6 +113,7 @@ func doTestWithTransConf(t *testing.T, svrConfig, cliConfig *TransportConfig) {
 
 	cliWg.Wait()
 	close(exit)
+	time.Sleep(time.Millisecond * 50) // ensure kcpClose packets are sent
 	_ = listener.Close()
 	svrWg.Wait()
 }
