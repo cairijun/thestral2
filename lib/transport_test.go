@@ -46,7 +46,7 @@ func TestTransportDefault(t *testing.T) {
 }
 
 func TestTransport(t *testing.T) {
-	for _, compMethod := range []string{"", "lz4", "snappy", "deflate"} {
+	for _, compMethod := range []string{"", "snappy", "deflate"} {
 		for _, tls := range []bool{false, true} {
 			for _, kcp := range []bool{false, true} {
 				name := fmt.Sprintf(

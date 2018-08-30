@@ -7,14 +7,13 @@ import (
 	"net"
 
 	"github.com/golang/snappy"
-	"github.com/pierrec/lz4"
 	"github.com/pkg/errors"
 )
 
 // WrapTransCompression wraps a Transport with a given compression method.
 func WrapTransCompression(inner Transport, method string) (Transport, error) {
 	switch method {
-	case "lz4", "snappy", "deflate":
+	case "snappy", "deflate":
 		return &compTransWrapper{inner, method}, nil
 	default:
 		return nil, errors.New("unknown compression method: " + method)
@@ -60,9 +59,6 @@ func (w *compConnWithPeerIDs) GetPeerIdentifiers() ([]*PeerIdentifier, error) {
 func compWrapConn(inner net.Conn, method string) (net.Conn, error) {
 	var wrapper *compConnWrapper
 	switch method {
-	case "lz4":
-		wrapper = &compConnWrapper{
-			inner, lz4.NewReader(inner), lz4.NewWriter(inner)}
 	case "snappy":
 		wrapper = &compConnWrapper{
 			inner, snappy.NewReader(inner), snappy.NewBufferedWriter(inner)}
