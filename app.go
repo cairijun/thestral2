@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	defaultConnectTimeout = time.Minute * 1
-	relayBufferSize       = 32 * 1024
-	enableReadFrom        = runtime.GOOS != "darwin" &&
+	defaultConnectTimeout        = time.Minute * 1
+	defaultMonitorUpdateInterval = time.Second * 1
+	relayBufferSize              = 32 * 1024
+	enableReadFrom               = runtime.GOOS != "darwin" &&
 		runtime.GOOS != "nacl" &&
 		runtime.GOOS != "netbsd" &&
 		runtime.GOOS != "openbsd"
@@ -31,6 +32,7 @@ type Thestral struct {
 	upstreamNames  []string
 	ruleMatcher    *RuleMatcher
 	connectTimeout time.Duration
+	monitor        AppMonitor
 }
 
 // NewThestralApp creates a Thestral app object from the given configuration.
@@ -118,6 +120,21 @@ func NewThestralApp(config Config) (app *Thestral, err error) {
 			app.connectTimeout = defaultConnectTimeout
 		}
 	}
+	if err == nil && config.Misc.EnableMonitor {
+		interval := defaultMonitorUpdateInterval
+		if config.Misc.MonitorUpdateInterval != "" {
+			if interval, err = time.ParseDuration(
+				config.Misc.MonitorUpdateInterval); err != nil {
+				err = errors.WithStack(err)
+			} else if interval <= 0 {
+				err = errors.New(
+					"'monitor_update_interval' should be greater than 0")
+			}
+		}
+		if err == nil {
+			app.monitor.Start(config.Misc.MonitorPath, interval)
+		}
+	}
 
 	return
 }
@@ -166,14 +183,15 @@ func (t *Thestral) processRequests(
 				"clientAddr", req.PeerAddr(),
 				"target", req.TargetAddr(),
 				"userIDs", peerIDs)
-			go t.processOneRequest(ctx, req)
+			go t.processOneRequest(ctx, req, dsName)
 		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (t *Thestral) processOneRequest(ctx context.Context, req ProxyRequest) {
+func (t *Thestral) processOneRequest(
+	ctx context.Context, req ProxyRequest, dsName string) {
 	// match against rule set
 	ruleName := ""
 	var upstreams []string
@@ -228,16 +246,24 @@ func (t *Thestral) processOneRequest(ctx context.Context, req ProxyRequest) {
 		"addr", req.TargetAddr(), "boundAddr", boundAddr, "upstream", selected,
 		"serverIDs", peerIDs)
 	downRWC := req.Success(boundAddr)
-	t.doRelay(ctx, req, downRWC, upConn) // block
+	t.doRelay(ctx, req, ruleName, dsName, selected, peerIDs, boundAddr.String(),
+		downRWC, upConn) // block
 }
 
 func (t *Thestral) doRelay(
-	ctx context.Context, req ProxyRequest,
+	ctx context.Context, req ProxyRequest, rule string, dsName string,
+	selected string, serverIDs []*PeerIdentifier, boundAddr string,
 	downRWC io.ReadWriteCloser, upRWC io.ReadWriteCloser) {
 	relayCtx, cancelFunc := context.WithCancel(ctx)
-	relay := func(dst, src io.ReadWriteCloser, dstName, srcName string) {
+	tunnelMonitor := t.monitor.OpenTunnelMonitor(
+		req, rule, dsName, selected, serverIDs, boundAddr, cancelFunc)
+	defer tunnelMonitor.Close()
+	relay := func(dst, src io.ReadWriteCloser, dstName, srcName string,
+		reportBytesTransfered func(uint32)) {
 		defer cancelFunc()
-		n, err := t.relayHalf(dst, src)
+		var n int64
+		var err error
+		n, err = t.relayHalf(dst, src, reportBytesTransfered)
 		if err == nil { // src closed
 			req.Logger().Infow(
 				"connection closed", "src", srcName, "bytesTransferred", n)
@@ -251,8 +277,10 @@ func (t *Thestral) doRelay(
 		}
 	}
 
-	go relay(upRWC, downRWC, "upstream", "downstream")
-	go relay(downRWC, upRWC, "downstream", "upstream")
+	go relay(upRWC, downRWC, "upstream", "downstream",
+		tunnelMonitor.IncBytesUploaded)
+	go relay(downRWC, upRWC, "downstream", "upstream",
+		tunnelMonitor.IncBytesDownloaded)
 
 	<-relayCtx.Done() // block until done/canceled
 	if err := upRWC.Close(); err != nil {
@@ -266,34 +294,28 @@ func (t *Thestral) doRelay(
 }
 
 func (t *Thestral) relayHalf(
-	dst io.Writer, src io.Reader) (n int64, err error) {
-	if wt, ok := src.(io.WriterTo); ok {
-		n, err = wt.WriteTo(dst)
-
-	} else if rt, ok := dst.(io.ReaderFrom); enableReadFrom && ok {
-		n, err = rt.ReadFrom(src)
-
-	} else {
-		buf := GlobalBufPool.Get(relayBufferSize)
-		defer GlobalBufPool.Free(buf)
-		for {
-			var nr, nw int
-			if nr, err = src.Read(buf); err == nil { // data read from src
-				nw, err = dst.Write(buf[:nr])
-				n += int64(nw)
-				if err != nil { // write failed
-					break
-				}
-				if nw < nr {
-					err = io.ErrShortWrite
-					break
-				}
-			} else { // EOF or error occurred
-				if err == io.EOF { // ended
-					err = nil
-				}
+	dst io.Writer, src io.Reader,
+	reportBytesTransfered func(uint32)) (n int64, err error) {
+	buf := GlobalBufPool.Get(relayBufferSize)
+	defer GlobalBufPool.Free(buf)
+	for {
+		var nr, nw int
+		if nr, err = src.Read(buf); err == nil { // data read from src
+			nw, err = dst.Write(buf[:nr])
+			n += int64(nw)
+			reportBytesTransfered(uint32(nw))
+			if err != nil { // write failed
 				break
 			}
+			if nw < nr {
+				err = io.ErrShortWrite
+				break
+			}
+		} else { // EOF or error occurred
+			if err == io.EOF { // ended
+				err = nil
+			}
+			break
 		}
 	}
 

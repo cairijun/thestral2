@@ -55,8 +55,15 @@ func main() {
 	}
 
 	if config.Misc.PProfAddr != "" {
+		fmt.Fprintf(os.Stderr, "Warning: misc.pprof_addr "+
+			"has been deprecated in favor of misc.debug_addr\n")
+		if config.Misc.DebugAddr == "" {
+			config.Misc.DebugAddr = config.Misc.PProfAddr
+		}
+	}
+	if config.Misc.DebugAddr != "" {
 		go func() {
-			e := http.ListenAndServe(config.Misc.PProfAddr, nil)
+			e := http.ListenAndServe(config.Misc.DebugAddr, nil)
 			if e != nil {
 				panic(e)
 			}

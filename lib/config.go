@@ -78,8 +78,12 @@ type LoggingConfig struct {
 
 // MiscConfig contains configuration that doesn't fall into any of above.
 type MiscConfig struct {
-	ConnectTimeout string `yaml:"connect_timeout"`
-	PProfAddr      string `yaml:"pprof_addr"`
+	ConnectTimeout        string `yaml:"connect_timeout"`
+	MonitorUpdateInterval string `yaml:"monitor_update_interval"`
+	MonitorPath           string `yaml:"monitor_path"`
+	EnableMonitor         bool   `yaml:"enable_monitor"`
+	PProfAddr             string `yaml:"pprof_addr"` // deprecated
+	DebugAddr             string `yaml:"debug_addr"` // in favor of this
 }
 
 // ParseConfigFile parses a given configuration file into a Config struct.

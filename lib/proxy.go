@@ -30,7 +30,7 @@ const (
 var currRequestID uint64
 
 func init() {
-	currRequestID = uint64(time.Now().Unix())
+	currRequestID = uint64(time.Now().UnixNano() >> 10)
 }
 
 // GetNextRequestID generates a string that can be used as the ID
