@@ -19,6 +19,10 @@ type Transport interface {
 // TCPTransport is a Transport on the TCP protocol.
 type TCPTransport struct{}
 
+type tcpListener struct {
+	*net.TCPListener
+}
+
 // Dial creates a connection to a TCP server.
 func (TCPTransport) Dial(
 	ctx context.Context, address string) (net.Conn, error) {
@@ -28,8 +32,23 @@ func (TCPTransport) Dial(
 
 // Listen creates a TCP listener on a given address.
 func (TCPTransport) Listen(address string) (net.Listener, error) {
-	listener, err := net.Listen("tcp", address)
-	return listener, errors.WithStack(err)
+	if addr, err := net.ResolveTCPAddr("tcp", address); err != nil {
+		return nil, errors.WithStack(err)
+	} else {
+		listener, err := net.ListenTCP("tcp", addr)
+		return tcpListener{listener}, errors.WithStack(err)
+	}
+}
+
+func (l tcpListener) Accept() (net.Conn, error) {
+	if conn, err := l.AcceptTCP(); err != nil {
+		return nil, errors.WithStack(err)
+	} else if err = conn.SetKeepAlive(true); err != nil {
+		_ = conn.Close()
+		return nil, errors.WithStack(err)
+	} else {
+		return conn, nil
+	}
 }
 
 // CreateTransport creates a Transport according to the given configuration.
