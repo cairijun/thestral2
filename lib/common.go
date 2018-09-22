@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"runtime"
@@ -173,4 +174,22 @@ func GetHomePath() string {
 		return ""
 	}
 	return os.Getenv("HOME")
+}
+
+// BytesHumanized generates a human-friendly representation of a byte count.
+func BytesHumanized(bytes uint64) string {
+	var format string
+	number := float32(bytes)
+	if bytes < 100 {
+		format = "%.0f B"
+	} else if bytes < 1024*1024 {
+		format, number = "%.2f KiB", number/1024
+	} else if bytes < 1024*1024*1024 {
+		format, number = "%.2f MiB", number/(1024*1024)
+	} else if bytes < 1024*1024*1024*1024 {
+		format, number = "%.2f GiB", number/(1024*1024*1024)
+	} else if bytes < 1024*1024*1024*1024*1024 {
+		format, number = "%.2f TiB", number/(1024*1024*1024*1024)
+	}
+	return fmt.Sprintf(format, number)
 }

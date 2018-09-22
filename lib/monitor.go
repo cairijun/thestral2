@@ -225,6 +225,39 @@ func (m *TunnelMonitor) Report() (report TunnelMonitorReport) {
 	return
 }
 
+func (r TunnelMonitorReport) Format(f fmt.State, c rune) {
+	if c != 'v' {
+		panic("Unknown verb for TunnelMonitorReport: " + string(c))
+	}
+	_, _ = fmt.Fprintf(f, "RequestID: %s\n", r.RequestID)
+	_, _ = fmt.Fprintf(f, "Rule: %s\n", r.Rule)
+	_, _ = fmt.Fprintf(f, "EstablishedSince: %s\n",
+		r.EstablishedSince.Local().Format(time.RFC1123))
+	elspsed := time.Duration(int64(r.ElapsedTimeSecs) * int64(time.Second))
+	_, _ = fmt.Fprintf(f, "ElapsedTime: %s\n", elspsed.String())
+	_, _ = fmt.Fprintf(f, "Downstream: %s\n", r.Downstream)
+	_, _ = fmt.Fprintf(f, "ClientIDs:\n")
+	for _, id := range r.ClientIDs {
+		_, _ = fmt.Fprintf(f, "  %+v\n", *id)
+	}
+	_, _ = fmt.Fprintf(f, "ClientAddr: %s\n", r.ClientAddr)
+	_, _ = fmt.Fprintf(f, "TargetAddr: %s\n", r.TargetAddr)
+	_, _ = fmt.Fprintf(f, "Upstream: %s\n", r.Upstream)
+	_, _ = fmt.Fprintf(f, "ServerIDs:\n")
+	for _, id := range r.ServerIDs {
+		_, _ = fmt.Fprintf(f, "  %+v\n", *id)
+	}
+	_, _ = fmt.Fprintf(f, "BoundAddr: %s\n", r.BoundAddr)
+	_, _ = fmt.Fprintf(f, "UploadSpeed: %s/s\n",
+		BytesHumanized(uint64(r.UploadSpeed)))
+	_, _ = fmt.Fprintf(f, "DownloadSpeed: %s/s\n",
+		BytesHumanized(uint64(r.DownloadSpeed)))
+	_, _ = fmt.Fprintf(f, "BytesUploaded: %s\n",
+		BytesHumanized(r.BytesUploaded))
+	_, _ = fmt.Fprintf(f, "BytesDownloaded: %s\n",
+		BytesHumanized(r.BytesDownloaded))
+}
+
 // transferMeter measures the speed of a bidirection transfer.
 type transferMeter struct {
 	bytesUploaded          uint64
