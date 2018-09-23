@@ -95,8 +95,8 @@ func (t *monitorTool) ls(term *terminal.Terminal, args []string) bool {
 		return true
 	}
 	w := tabwriter.NewWriter(term, 2, 0, 2, ' ', tabwriter.AlignRight)
-	defer w.Flush() // nolint: errcheck
-	fmt.Fprintln(w, "#\tReqID\tClient\tTarget\tUpstream\tDownload\tUpload\tElapsed\t")
+	fmt.Fprintln(w,
+		"#\tReqID\tClient\tTarget\tUpstream\tDownload\tUpload\tElapsed\t")
 	t.lastListedReqIDs = make([]string, len(report.Tunnels))
 	for i, r := range report.Tunnels {
 		t.lastListedReqIDs[i] = r.RequestID
@@ -106,6 +106,18 @@ func (t *monitorTool) ls(term *terminal.Terminal, args []string) bool {
 			lib.BytesHumanized(uint64(r.UploadSpeed)),
 			t.formatSeconds(r.ElapsedTimeSecs))
 	}
+	_ = w.Flush()
+
+	w = tabwriter.NewWriter(term, 2, 0, 2, ' ', 0)
+	fmt.Fprintf(w, "\nServer:\tThestral2 %s\t%s\t\n",
+		report.ThestralVersion, report.Runtime)
+	fmt.Fprintf(w, "Upload:\t%s/s\t(%s)\t\n",
+		lib.BytesHumanized(uint64(report.UploadSpeed)),
+		lib.BytesHumanized(report.BytesUploaded))
+	fmt.Fprintf(w, "Download:\t%s/s\t(%s)\t\n",
+		lib.BytesHumanized(uint64(report.DownloadSpeed)),
+		lib.BytesHumanized(report.BytesDownloaded))
+	_ = w.Flush()
 	return true
 }
 
