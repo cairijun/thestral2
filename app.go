@@ -121,19 +121,7 @@ func NewThestralApp(config Config) (app *Thestral, err error) {
 		}
 	}
 	if err == nil && config.Misc.EnableMonitor {
-		interval := defaultMonitorUpdateInterval
-		if config.Misc.MonitorUpdateInterval != "" {
-			if interval, err = time.ParseDuration(
-				config.Misc.MonitorUpdateInterval); err != nil {
-				err = errors.WithStack(err)
-			} else if interval <= 0 {
-				err = errors.New(
-					"'monitor_update_interval' should be greater than 0")
-			}
-		}
-		if err == nil {
-			app.monitor.Start(config.Misc.MonitorPath, interval)
-		}
+		app.monitor.Start(config.Misc.MonitorPath)
 	}
 
 	return

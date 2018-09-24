@@ -12,6 +12,11 @@ import (
 	"time"
 )
 
+// monitorUpdateInterval is the interval at which the monitor update its
+// internal state. This is a variable only for testing and should be considered
+// as a constant in other cases.
+var monitorUpdateInterval = time.Second * 1
+
 // AppMonitor records and reports runtime statistics of an thestral app.
 type AppMonitor struct {
 	transferMeter  transferMeter
@@ -33,9 +38,9 @@ type AppMonitorReport struct {
 }
 
 // Start the AppMonitor.
-func (m *AppMonitor) Start(path string, updateInterval time.Duration) {
+func (m *AppMonitor) Start(path string) {
 	go func() {
-		tickCh := time.Tick(updateInterval)
+		tickCh := time.Tick(monitorUpdateInterval)
 		for {
 			_ = <-tickCh
 			m.updateEpoch()
