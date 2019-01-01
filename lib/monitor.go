@@ -109,9 +109,10 @@ func (m *AppMonitor) registerRPCHandlers(path string) {
 func (m *AppMonitor) OpenTunnelMonitor(
 	req ProxyRequest, rule string, downstream string,
 	upstream string, serverIDs []*PeerIdentifier, boundAddr string,
-	cancelFunc context.CancelFunc) *TunnelMonitor {
+	connLatency time.Duration, cancelFunc context.CancelFunc) *TunnelMonitor {
 	tm := newTunnelMonitor(
-		m, req, rule, downstream, upstream, serverIDs, boundAddr, cancelFunc)
+		m, req, rule, downstream, upstream, serverIDs, boundAddr,
+		connLatency, cancelFunc)
 	m.tunnelMonitors.Store(req.ID(), tm)
 	return tm
 }
@@ -162,6 +163,7 @@ type TunnelMonitor struct {
 	upstream         string
 	serverIDs        []*PeerIdentifier
 	boundAddr        string
+	connLatency      time.Duration
 	establishedSince time.Time
 	transferMeter    transferMeter
 	cancelFunc       context.CancelFunc
@@ -184,6 +186,7 @@ type TunnelMonitorReport struct {
 	ServerIDs []*PeerIdentifier
 	BoundAddr string
 	// statistics
+	ConnLatencyUs   uint32
 	UploadSpeed     float32
 	DownloadSpeed   float32
 	BytesUploaded   uint64
@@ -193,7 +196,7 @@ type TunnelMonitorReport struct {
 func newTunnelMonitor(
 	appMonitor *AppMonitor, req ProxyRequest, rule string, downstream string,
 	upstream string, serverIDs []*PeerIdentifier, boundAddr string,
-	cancelFunc context.CancelFunc) *TunnelMonitor {
+	connLatency time.Duration, cancelFunc context.CancelFunc) *TunnelMonitor {
 	return &TunnelMonitor{
 		appMonitor:       appMonitor,
 		request:          req,
@@ -202,6 +205,7 @@ func newTunnelMonitor(
 		upstream:         upstream,
 		serverIDs:        serverIDs,
 		boundAddr:        boundAddr,
+		connLatency:      connLatency,
 		establishedSince: time.Now(),
 		cancelFunc:       cancelFunc,
 	}
@@ -246,6 +250,7 @@ func (m *TunnelMonitor) Report() (report TunnelMonitorReport) {
 	report.Upstream = m.upstream
 	report.ServerIDs = m.serverIDs
 	report.BoundAddr = m.boundAddr
+	report.ConnLatencyUs = uint32(m.connLatency.Nanoseconds() / 1e3)
 	report.UploadSpeed, report.DownloadSpeed = m.transferMeter.speed()
 	report.BytesUploaded, report.BytesDownloaded =
 		m.transferMeter.bytesTransferred()
@@ -275,6 +280,8 @@ func (r TunnelMonitorReport) Format(f fmt.State, c rune) {
 		_, _ = fmt.Fprintf(f, "  %+v\n", *id)
 	}
 	_, _ = fmt.Fprintf(f, "BoundAddr: %s\n", r.BoundAddr)
+	_, _ = fmt.Fprintf(
+        f, "ConnLatency: %.2f ms\n", float32(r.ConnLatencyUs)/1000)
 	_, _ = fmt.Fprintf(f, "UploadSpeed: %s/s\n",
 		BytesHumanized(uint64(r.UploadSpeed)))
 	_, _ = fmt.Fprintf(f, "DownloadSpeed: %s/s\n",

@@ -216,6 +216,7 @@ func (t *Thestral) processOneRequest(
 	// make request
 	reqCtx, cancelFunc := context.WithTimeout(ctx, t.connectTimeout)
 	defer cancelFunc()
+	startTime := time.Now()
 	upConn, boundAddr, pErr := upstream.Request(reqCtx, req.TargetAddr())
 	if pErr != nil {
 		req.Logger().Errorw(
@@ -224,6 +225,7 @@ func (t *Thestral) processOneRequest(
 		req.Fail(pErr)
 		return
 	}
+	connLatency := time.Since(startTime)
 
 	var peerIDs []*PeerIdentifier
 	if wpi, ok := upConn.(WithPeerIdentifiers); ok {
@@ -234,17 +236,17 @@ func (t *Thestral) processOneRequest(
 		"addr", req.TargetAddr(), "boundAddr", boundAddr, "upstream", selected,
 		"serverIDs", peerIDs)
 	downRWC := req.Success(boundAddr)
-	t.doRelay(ctx, req, ruleName, dsName, selected, peerIDs, boundAddr.String(),
-		downRWC, upConn) // block
+	relayCtx, cancelFunc := context.WithCancel(ctx)
+	tunnelMonitor := t.monitor.OpenTunnelMonitor(
+		req, ruleName, dsName, selected, peerIDs, boundAddr.String(),
+		connLatency, cancelFunc)
+	t.doRelay(relayCtx, cancelFunc, tunnelMonitor, req, downRWC, upConn) // block
 }
 
 func (t *Thestral) doRelay(
-	ctx context.Context, req ProxyRequest, rule string, dsName string,
-	selected string, serverIDs []*PeerIdentifier, boundAddr string,
+	relayCtx context.Context, cancelFunc context.CancelFunc,
+	tunnelMonitor *TunnelMonitor, req ProxyRequest,
 	downRWC io.ReadWriteCloser, upRWC io.ReadWriteCloser) {
-	relayCtx, cancelFunc := context.WithCancel(ctx)
-	tunnelMonitor := t.monitor.OpenTunnelMonitor(
-		req, rule, dsName, selected, serverIDs, boundAddr, cancelFunc)
 	defer tunnelMonitor.Close()
 	relay := func(dst, src io.ReadWriteCloser, dstName, srcName string,
 		reportBytesTransfered func(uint32)) {

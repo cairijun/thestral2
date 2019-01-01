@@ -39,9 +39,10 @@ func TestMonitor(t *testing.T) {
 		go func(i int) {
 			defer tunnelWg.Done()
 			name := func(pfx string) string { return pfx + strconv.Itoa(i) }
+            latency := time.Millisecond * time.Duration(i)
 			tunnelMonitor := monitor.OpenTunnelMonitor(
 				testProxyRequest(i), name("Rule"), name("Downstream"),
-				name("Upstream"), nil, name("BoundAddr"), cancelFuncs[i])
+				name("Upstream"), nil, name("BoundAddr"), latency, cancelFuncs[i])
 			defer tunnelMonitor.Close()
 			tunnelStartWg.Done()
 			for {
@@ -88,6 +89,7 @@ func TestMonitor(t *testing.T) {
 					require.Equal(name("Upstream"), r.Upstream)
 					require.Empty(r.ServerIDs)
 					require.Equal(name("BoundAddr"), r.BoundAddr)
+                    require.Equal(uint32(idx*1000), r.ConnLatencyUs)
 					expUploadSpeed := float32(idx+1) * baseUploadPerBlock *
 						float32(time.Second) / float32(transferInterval)
 					expDownloadSpeed := float32(idx+1) * baseDownloadPerBlock *
