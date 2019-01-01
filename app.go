@@ -16,7 +16,6 @@ import (
 
 const (
 	defaultConnectTimeout        = time.Minute * 1
-	defaultMonitorUpdateInterval = time.Second * 1
 	relayBufferSize              = 32 * 1024
 	enableReadFrom               = runtime.GOOS != "darwin" &&
 		runtime.GOOS != "nacl" &&

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"runtime"
 	"sort"
@@ -42,7 +43,7 @@ func (m *AppMonitor) Start(path string) {
 	go func() {
 		tickCh := time.Tick(monitorUpdateInterval)
 		for {
-			_ = <-tickCh
+			<-tickCh
 			m.updateEpoch()
 		}
 	}()
@@ -242,7 +243,7 @@ func (m *TunnelMonitor) Report() (report TunnelMonitorReport) {
 	report.RequestID = m.request.ID()
 	report.Rule = m.rule
 	report.EstablishedSince = m.establishedSince
-	report.ElapsedTimeSecs = time.Now().Sub(m.establishedSince).Seconds()
+	report.ElapsedTimeSecs = time.Since(m.establishedSince).Seconds()
 	report.Downstream = m.downstream
 	report.ClientIDs, _ = m.request.GetPeerIdentifiers()
 	report.ClientAddr = m.request.PeerAddr()
@@ -270,18 +271,18 @@ func (r TunnelMonitorReport) Format(f fmt.State, c rune) {
 	_, _ = fmt.Fprintf(f, "Downstream: %s\n", r.Downstream)
 	_, _ = fmt.Fprintf(f, "ClientIDs:\n")
 	for _, id := range r.ClientIDs {
-		_, _ = fmt.Fprintf(f, "  %+v\n", *id)
+		printPeerID(f, "  ", id)
 	}
 	_, _ = fmt.Fprintf(f, "ClientAddr: %s\n", r.ClientAddr)
 	_, _ = fmt.Fprintf(f, "TargetAddr: %s\n", r.TargetAddr)
 	_, _ = fmt.Fprintf(f, "Upstream: %s\n", r.Upstream)
 	_, _ = fmt.Fprintf(f, "ServerIDs:\n")
 	for _, id := range r.ServerIDs {
-		_, _ = fmt.Fprintf(f, "  %+v\n", *id)
+		printPeerID(f, "  ", id)
 	}
 	_, _ = fmt.Fprintf(f, "BoundAddr: %s\n", r.BoundAddr)
 	_, _ = fmt.Fprintf(
-        f, "ConnLatency: %.2f ms\n", float32(r.ConnLatencyUs)/1000)
+		f, "ConnLatency: %.2f ms\n", float32(r.ConnLatencyUs)/1000)
 	_, _ = fmt.Fprintf(f, "UploadSpeed: %s/s\n",
 		BytesHumanized(uint64(r.UploadSpeed)))
 	_, _ = fmt.Fprintf(f, "DownloadSpeed: %s/s\n",
@@ -290,6 +291,19 @@ func (r TunnelMonitorReport) Format(f fmt.State, c rune) {
 		BytesHumanized(r.BytesUploaded))
 	_, _ = fmt.Fprintf(f, "BytesDownloaded: %s\n",
 		BytesHumanized(r.BytesDownloaded))
+}
+
+func printPeerID(w io.Writer, indent string, i *PeerIdentifier) {
+	_, _ = fmt.Fprintf(w, "%s%s/%s\n", indent, i.Scope, i.Name)
+	_, _ = fmt.Fprintf(w, "%s%sUniqueID: %s\n", indent, indent, i.UniqueID)
+	for k, v := range i.ExtraInfo {
+		_, _ = fmt.Fprintf(w, "%s%s%s: ", indent, indent, k)
+		if s, ok := v.(fmt.Stringer); ok {
+			_, _ = fmt.Fprintf(w, "%s\n", s.String())
+		} else {
+			_, _ = fmt.Fprintf(w, "%+v\n", v)
+		}
+	}
 }
 
 // transferMeter measures the speed of a bidirection transfer.
