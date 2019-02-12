@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
@@ -39,7 +40,7 @@ func TestMonitor(t *testing.T) {
 		go func(i int) {
 			defer tunnelWg.Done()
 			name := func(pfx string) string { return pfx + strconv.Itoa(i) }
-            latency := time.Millisecond * time.Duration(i)
+			latency := time.Millisecond * time.Duration(i)
 			tunnelMonitor := monitor.OpenTunnelMonitor(
 				testProxyRequest(i), name("Rule"), name("Downstream"),
 				name("Upstream"), nil, name("BoundAddr"), latency, cancelFuncs[i])
@@ -89,7 +90,7 @@ func TestMonitor(t *testing.T) {
 					require.Equal(name("Upstream"), r.Upstream)
 					require.Empty(r.ServerIDs)
 					require.Equal(name("BoundAddr"), r.BoundAddr)
-                    require.Equal(uint32(idx*1000), r.ConnLatencyUs)
+					require.Equal(float32(idx), r.ConnLatencyMs)
 					expUploadSpeed := float32(idx+1) * baseUploadPerBlock *
 						float32(time.Second) / float32(transferInterval)
 					expDownloadSpeed := float32(idx+1) * baseDownloadPerBlock *
@@ -123,6 +124,26 @@ func TestMonitor(t *testing.T) {
 		cancelFuncs[i]()
 	}
 	tunnelWg.Wait()
+}
+
+func TestAppMonitorAvgLatErrCnt(t *testing.T) {
+	var monitor AppMonitor
+	monitor.Start("test_monitor_TestAppMonitorAvgLatErrCnt")
+	const errCnt = 10
+	for i := 0; i < errCnt; i++ {
+		monitor.AddError()
+	}
+	for i := 0; i < 100; i++ {
+		name := func(pfx string) string { return pfx + strconv.Itoa(i) }
+		latency := time.Millisecond * time.Duration(i)
+		tunnelMonitor := monitor.OpenTunnelMonitor(
+			testProxyRequest(i), name("Rule"), name("Downstream"),
+			name("Upstream"), nil, name("BoundAddr"), latency, func() {})
+		defer tunnelMonitor.Close()
+	}
+	report := monitor.Report()
+	assert.Equal(t, uint32(errCnt), report.ErrorCount)
+	assert.InEpsilon(t, 98.75, report.AvgConnLatencyMs, 1e-3)
 }
 
 type testProxyRequest int

@@ -18,6 +18,8 @@ import (
 // as a constant in other cases.
 var monitorUpdateInterval = time.Second * 1
 
+const connLatencyEmaAlpha = 0.8
+
 // AppMonitor records and reports runtime statistics of an thestral app.
 type AppMonitor struct {
 	transferMeter  transferMeter
@@ -30,10 +32,12 @@ type AppMonitorReport struct {
 	ThestralVersion string
 	Runtime         string
 	// global transfer statistics
-	UploadSpeed     float32
-	DownloadSpeed   float32
-	BytesUploaded   uint64
-	BytesDownloaded uint64
+	AvgConnLatencyMs float32
+	ErrorCount       uint32
+	UploadSpeed      float32
+	DownloadSpeed    float32
+	BytesUploaded    uint64
+	BytesDownloaded  uint64
 	// per-tunnel report
 	Tunnels []*TunnelMonitorReport
 }
@@ -112,10 +116,16 @@ func (m *AppMonitor) OpenTunnelMonitor(
 	upstream string, serverIDs []*PeerIdentifier, boundAddr string,
 	connLatency time.Duration, cancelFunc context.CancelFunc) *TunnelMonitor {
 	tm := newTunnelMonitor(
-		m, req, rule, downstream, upstream, serverIDs, boundAddr,
-		connLatency, cancelFunc)
+		m, req, rule, downstream, upstream, serverIDs, boundAddr, cancelFunc)
+	tm.transferMeter.addConnLatency(connLatency)
+	m.transferMeter.addConnLatency(connLatency)
 	m.tunnelMonitors.Store(req.ID(), tm)
 	return tm
+}
+
+// AddError increases the error count of the monitor.
+func (m *AppMonitor) AddError() {
+	m.transferMeter.addError()
 }
 
 func (m *AppMonitor) updateEpoch() {
@@ -132,6 +142,8 @@ func (m *AppMonitor) Report() (report AppMonitorReport) {
 	report.Runtime = fmt.Sprintf("%s on %s/%s",
 		runtime.Version(), runtime.GOOS, runtime.GOARCH)
 
+	report.AvgConnLatencyMs = m.transferMeter.emaConnLatencyMs
+	report.ErrorCount = m.transferMeter.errorCount
 	report.UploadSpeed, report.DownloadSpeed = m.transferMeter.speed()
 	report.BytesUploaded, report.BytesDownloaded =
 		m.transferMeter.bytesTransferred()
@@ -164,7 +176,6 @@ type TunnelMonitor struct {
 	upstream         string
 	serverIDs        []*PeerIdentifier
 	boundAddr        string
-	connLatency      time.Duration
 	establishedSince time.Time
 	transferMeter    transferMeter
 	cancelFunc       context.CancelFunc
@@ -187,7 +198,7 @@ type TunnelMonitorReport struct {
 	ServerIDs []*PeerIdentifier
 	BoundAddr string
 	// statistics
-	ConnLatencyUs   uint32
+	ConnLatencyMs   float32
 	UploadSpeed     float32
 	DownloadSpeed   float32
 	BytesUploaded   uint64
@@ -197,7 +208,7 @@ type TunnelMonitorReport struct {
 func newTunnelMonitor(
 	appMonitor *AppMonitor, req ProxyRequest, rule string, downstream string,
 	upstream string, serverIDs []*PeerIdentifier, boundAddr string,
-	connLatency time.Duration, cancelFunc context.CancelFunc) *TunnelMonitor {
+	cancelFunc context.CancelFunc) *TunnelMonitor {
 	return &TunnelMonitor{
 		appMonitor:       appMonitor,
 		request:          req,
@@ -206,7 +217,6 @@ func newTunnelMonitor(
 		upstream:         upstream,
 		serverIDs:        serverIDs,
 		boundAddr:        boundAddr,
-		connLatency:      connLatency,
 		establishedSince: time.Now(),
 		cancelFunc:       cancelFunc,
 	}
@@ -251,13 +261,14 @@ func (m *TunnelMonitor) Report() (report TunnelMonitorReport) {
 	report.Upstream = m.upstream
 	report.ServerIDs = m.serverIDs
 	report.BoundAddr = m.boundAddr
-	report.ConnLatencyUs = uint32(m.connLatency.Nanoseconds() / 1e3)
+	report.ConnLatencyMs = m.transferMeter.emaConnLatencyMs
 	report.UploadSpeed, report.DownloadSpeed = m.transferMeter.speed()
 	report.BytesUploaded, report.BytesDownloaded =
 		m.transferMeter.bytesTransferred()
 	return
 }
 
+// Format generates a human-readable report. The format verb must be '%v'.
 func (r TunnelMonitorReport) Format(f fmt.State, c rune) {
 	if c != 'v' {
 		panic("Unknown verb for TunnelMonitorReport: " + string(c))
@@ -281,8 +292,7 @@ func (r TunnelMonitorReport) Format(f fmt.State, c rune) {
 		printPeerID(f, "  ", id)
 	}
 	_, _ = fmt.Fprintf(f, "BoundAddr: %s\n", r.BoundAddr)
-	_, _ = fmt.Fprintf(
-		f, "ConnLatency: %.2f ms\n", float32(r.ConnLatencyUs)/1000)
+	_, _ = fmt.Fprintf(f, "ConnLatency: %.2f ms\n", r.ConnLatencyMs)
 	_, _ = fmt.Fprintf(f, "UploadSpeed: %s/s\n",
 		BytesHumanized(uint64(r.UploadSpeed)))
 	_, _ = fmt.Fprintf(f, "DownloadSpeed: %s/s\n",
@@ -312,6 +322,8 @@ type transferMeter struct {
 	bytesDownloaded        uint64
 	bytesUploadedHistory   uint64 // high, low = bytes[t - 2], bytes[t - 1]
 	bytesDownloadedHistory uint64 // high, low = bytes[t - 2], bytes[t - 1]
+	emaConnLatencyMs       float32
+	errorCount             uint32
 	// gap between the lastest two consecutive lastPushTimes
 	lastPushGapNs int64
 	// last time we pushed bytesXxx to bytesXxxHistory
@@ -324,6 +336,20 @@ func (m *transferMeter) incUploaded(n uint32) {
 
 func (m *transferMeter) incDownloaded(n uint32) {
 	atomic.AddUint64(&m.bytesDownloaded, uint64(n))
+}
+
+func (m *transferMeter) addConnLatency(connLatency time.Duration) {
+	latMs := float32(connLatency.Seconds() * 1e3)
+	if m.emaConnLatencyMs == 0.0 {
+		m.emaConnLatencyMs = latMs
+	} else {
+		m.emaConnLatencyMs = latMs*connLatencyEmaAlpha +
+			m.emaConnLatencyMs*(1-connLatencyEmaAlpha)
+	}
+}
+
+func (m *transferMeter) addError() {
+	m.errorCount++
 }
 
 // pushHistory records the current transfered statistics.

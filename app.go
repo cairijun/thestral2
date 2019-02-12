@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	defaultConnectTimeout        = time.Minute * 1
-	relayBufferSize              = 32 * 1024
-	enableReadFrom               = runtime.GOOS != "darwin" &&
+	defaultConnectTimeout = time.Minute * 1
+	relayBufferSize       = 32 * 1024
+	enableReadFrom        = runtime.GOOS != "darwin" &&
 		runtime.GOOS != "nacl" &&
 		runtime.GOOS != "netbsd" &&
 		runtime.GOOS != "openbsd"
@@ -222,6 +222,7 @@ func (t *Thestral) processOneRequest(
 			"connection failed", "addr", req.TargetAddr(),
 			"error", pErr.Error, "errType", pErr.ErrType, "upstream", selected)
 		req.Fail(pErr)
+		t.monitor.AddError()
 		return
 	}
 	connLatency := time.Since(startTime)

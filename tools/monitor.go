@@ -111,6 +111,8 @@ func (t *monitorTool) ls(term *terminal.Terminal, args []string) bool {
 	w = tabwriter.NewWriter(term, 2, 0, 2, ' ', 0)
 	fmt.Fprintf(w, "\nServer:\tThestral2 %s\t%s\t\n",
 		report.ThestralVersion, report.Runtime)
+	fmt.Fprintf(w, "AvgConnLatencyMs:\t%.2f ms\n", report.AvgConnLatencyMs)
+	fmt.Fprintf(w, "ErrorCount:\t%d\n", report.ErrorCount)
 	fmt.Fprintf(w, "Upload:\t%s/s\t(%s)\t\n",
 		lib.BytesHumanized(uint64(report.UploadSpeed)),
 		lib.BytesHumanized(report.BytesUploaded))
