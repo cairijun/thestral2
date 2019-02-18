@@ -49,7 +49,7 @@ fi
 
 case $cmd in
     "help")
-        echo "$0 [(help | build | test | install) [extra_args...]]"
+        echo "$0 [(help | build | test | install | get_deps) [extra_args...]]"
         exit 0 ;;
     "build")
         CMD="go build $GO_ARGS $EXTRA_ARGS" ;;
@@ -57,11 +57,14 @@ case $cmd in
         CMD="go test $GO_ARGS $EXTRA_ARGS -p 1 ./..." ;;
     "install")
         CMD="go install $GO_ARGS $EXTRA_ARGS" ;;
+    "get_deps")
+        CMD="go get -u $GO_ARGS $EXTRA_ARGS" ;;
     *)
         error "unknown command '$cmd'"
         exit 1 ;;
 esac
 
+export GO111MODULE=on
 eval "$CMD"
 EXIT_CODE=$?
 if [[ $EXIT_CODE == 0 ]]; then
