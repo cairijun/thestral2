@@ -5,26 +5,24 @@ init:
     Get-ChildItem Env:
     go env
 environment:
-  Path: C:\mingw-w64\x86_64-6.3.0-posix-seh-rt_v5-rev1\mingw64\bin;%PATH%
+  Path: C:\mingw-w64\x86_64-6.3.0-posix-seh-rt_v5-rev1\mingw64\bin;C:\cygwin64\bin;%PATH%
 install:
 - ps: |
     $version = git describe --always --dirty
     $build = $Env:APPVEYOR_BUILD_NUMBER
     Set-AppveyorBuildVariable -Name THESTRAL_VERSION -Value "$version"
     Update-AppveyorBuild -Version "$version-$build"
-    go get -t -d --tags=full .
+    Set-Item Env:GO111MODULE "off"
     go get github.com/jstemmer/go-junit-report
+    Set-Item Env:GO111MODULE "on"
 build_script:
 - ps: |
-    $version = "$Env:THESTRAL_VERSION"
-    $time = Get-Date -UFormat '%a, %d %b %Y %T %Z'
-    $ldflags = "-X `'github.com/richardtsai/thestral2/lib.ThestralVersion=$version`' -X `'github.com/richardtsai/thestral2/lib.ThestralBuiltTime=$time`'"
     gcc --version
     go version
-    go build -ldflags """$ldflags""" --tags=full -o thestral2-$Env:THESTRAL_VERSION-win64.exe
+    bash -c "./make.sh build --tags=full -o 'thestral2-$Env:THESTRAL_VERSION-win64.exe' 2>&1"
 test_script:
 - ps: |
-    go test -v --tags=full -race -p 1 ./... > report.out
+    bash -c "./make.sh test -v -race --tags=full > report.out 2>&1"
     $test_exit_status = $lastexitcode
     echo $test_exit_status
     cat report.out | go-junit-report 1> report.xml

@@ -11,12 +11,12 @@ jobs:
           command: |
             mkdir /tmp/test_results
             go get github.com/jstemmer/go-junit-report
-            go get -t -d --tags=full .
       - run:
           name: Run tests
           command: |
             set -o pipefail
-            ./make.sh test -v -race --tags=full | go-junit-report > /tmp/test_results/report.xml
+            ./make.sh test -v -race --tags=full | tee /tmp/test.log
+            cat /tmp/test.log | go-junit-report > /tmp/test_results/report.xml
       - store_test_results:
           path: /tmp/test_results
       - run:
