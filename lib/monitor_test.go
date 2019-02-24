@@ -131,7 +131,7 @@ func TestAppMonitorAvgLatErrCnt(t *testing.T) {
 	monitor.Start("test_monitor_TestAppMonitorAvgLatErrCnt")
 	const errCnt = 10
 	for i := 0; i < errCnt; i++ {
-		monitor.AddError()
+		monitor.AddError("")
 	}
 	for i := 0; i < 100; i++ {
 		name := func(pfx string) string { return pfx + strconv.Itoa(i) }
@@ -144,6 +144,52 @@ func TestAppMonitorAvgLatErrCnt(t *testing.T) {
 	report := monitor.Report()
 	assert.Equal(t, uint32(errCnt), report.ErrorCount)
 	assert.InEpsilon(t, 98.75, report.AvgConnLatencyMs, 1e-3)
+}
+
+func TestUpstreamMonitor(t *testing.T) {
+	var monitor AppMonitor
+	monitor.Start("test_monitor_TestUpstreamMonitor")
+	wg := sync.WaitGroup{}
+	upName := func(i int) string { return "upstream_" + strconv.Itoa(i) }
+	for i := 1; i <= 5; i++ {
+		for j := 1; j <= i; j++ {
+			wg.Add(1)
+			go func(upstream string) {
+				defer wg.Done()
+				monitor.AddError(upstream)
+			}(upName(j))
+		}
+	}
+	wg.Wait()
+	for i := 0; i < 5*10; i++ {
+		upstream := "upstream_" + strconv.Itoa(i%5+1)
+		name := func(pfx string) string { return pfx + strconv.Itoa(i) }
+		latency := time.Millisecond * time.Duration(i)
+		tunnelMonitor := monitor.OpenTunnelMonitor(
+			testProxyRequest(i), name("Rule"), name("Downstream"),
+			upstream, nil, name("BoundAddr"), latency, func() {})
+		defer tunnelMonitor.Close()
+	}
+	expectedErrCnts := map[string]uint32{
+		"upstream_1": 5,
+		"upstream_2": 4,
+		"upstream_3": 3,
+		"upstream_4": 2,
+		"upstream_5": 1,
+	}
+	expectedAvgLats := map[string]float32{
+		"upstream_1": 43.75,
+		"upstream_2": 44.75,
+		"upstream_3": 45.75,
+		"upstream_4": 46.75,
+		"upstream_5": 47.75,
+	}
+	reports := monitor.Report().Upstreams
+	for _, report := range reports {
+		require.Equal(t, expectedErrCnts[report.Name], report.ErrorCount)
+		require.InEpsilon(
+			t, expectedAvgLats[report.Name], report.AvgConnLatencyMs, 1e-3)
+	}
 }
 
 type testProxyRequest int

@@ -94,17 +94,34 @@ func (t *monitorTool) ls(term *terminal.Terminal, args []string) bool {
 		fmt.Fprintln(term, err.Error())
 		return true
 	}
+
 	w := tabwriter.NewWriter(term, 2, 0, 2, ' ', tabwriter.AlignRight)
+	fmt.Fprintln(w, "Tunnels")
 	fmt.Fprintln(w,
-		"#\tReqID\tClient\tTarget\tUpstream\tDownload\tUpload\tElapsed\t")
+		"#\tReqID\tClient\tTarget\tUpstream\tUpload\tDownload\tElapsed\t")
 	t.lastListedReqIDs = make([]string, len(report.Tunnels))
+	upstreamTunnelCount := make(map[string]int)
 	for i, r := range report.Tunnels {
 		t.lastListedReqIDs[i] = r.RequestID
+		upstreamTunnelCount[r.Upstream] = upstreamTunnelCount[r.Upstream] + 1
 		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s/s\t%s/s\t%s\t\n",
 			i, r.RequestID, r.ClientAddr, r.TargetAddr, r.Upstream,
-			lib.BytesHumanized(uint64(r.DownloadSpeed)),
 			lib.BytesHumanized(uint64(r.UploadSpeed)),
+			lib.BytesHumanized(uint64(r.DownloadSpeed)),
 			t.formatSeconds(r.ElapsedTimeSecs))
+	}
+	fmt.Fprintln(w, "Upstreams")
+	fmt.Fprintln(w,
+		"Name\tTunnels\t\tUpload\t\tDownload\tLatencyMs\tErrors\t")
+	for _, r := range report.Upstreams {
+		fmt.Fprintf(w, "%s\t%d\t%s/s\t(%s)\t%s/s\t(%s)\t%.2f ms\t%d\t\n",
+			r.Name, upstreamTunnelCount[r.Name],
+			lib.BytesHumanized(uint64(r.UploadSpeed)),
+			lib.BytesHumanized(r.BytesUploaded),
+			lib.BytesHumanized(uint64(r.DownloadSpeed)),
+			lib.BytesHumanized(r.BytesDownloaded),
+			r.AvgConnLatencyMs, r.ErrorCount,
+		)
 	}
 	_ = w.Flush()
 

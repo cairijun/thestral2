@@ -222,7 +222,7 @@ func (t *Thestral) processOneRequest(
 			"connection failed", "addr", req.TargetAddr(),
 			"error", pErr.Error, "errType", pErr.ErrType, "upstream", selected)
 		req.Fail(pErr)
-		t.monitor.AddError()
+		t.monitor.AddError(selected)
 		return
 	}
 	connLatency := time.Since(startTime)
