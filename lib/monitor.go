@@ -117,19 +117,19 @@ func (m *AppMonitor) OpenTunnelMonitor(
 	connLatency time.Duration, cancelFunc context.CancelFunc) *TunnelMonitor {
 	tm := newTunnelMonitor(
 		m, req, rule, downstream, upstream, serverIDs, boundAddr, cancelFunc)
-	tm.transferMeter.addConnLatency(connLatency)
-	m.transferMeter.addConnLatency(connLatency)
+	tm.transferMeter.AddConnLatency(connLatency)
+	m.transferMeter.AddConnLatency(connLatency)
 	m.tunnelMonitors.Store(req.ID(), tm)
 	return tm
 }
 
 // AddError increases the error count of the monitor.
 func (m *AppMonitor) AddError() {
-	m.transferMeter.addError()
+	m.transferMeter.AddError()
 }
 
 func (m *AppMonitor) updateEpoch() {
-	m.transferMeter.pushHistory()
+	m.transferMeter.PushHistory()
 	m.tunnelMonitors.Range(func(key interface{}, value interface{}) bool {
 		value.(*TunnelMonitor).updateEpoch()
 		return true
@@ -144,9 +144,9 @@ func (m *AppMonitor) Report() (report AppMonitorReport) {
 
 	report.AvgConnLatencyMs = m.transferMeter.emaConnLatencyMs
 	report.ErrorCount = m.transferMeter.errorCount
-	report.UploadSpeed, report.DownloadSpeed = m.transferMeter.speed()
+	report.UploadSpeed, report.DownloadSpeed = m.transferMeter.Speed()
 	report.BytesUploaded, report.BytesDownloaded =
-		m.transferMeter.bytesTransferred()
+		m.transferMeter.BytesTransferred()
 
 	m.tunnelMonitors.Range(func(key interface{}, value interface{}) bool {
 		tunnelReport := value.(*TunnelMonitor).Report()
@@ -223,19 +223,19 @@ func newTunnelMonitor(
 }
 
 func (m *TunnelMonitor) updateEpoch() {
-	m.transferMeter.pushHistory()
+	m.transferMeter.PushHistory()
 }
 
 // IncBytesUploaded records the number of bytes in a trunk uploaded.
 func (m *TunnelMonitor) IncBytesUploaded(n uint32) {
-	m.appMonitor.transferMeter.incUploaded(n)
-	m.transferMeter.incUploaded(n)
+	m.appMonitor.transferMeter.IncUploaded(n)
+	m.transferMeter.IncUploaded(n)
 }
 
 // IncBytesDownloaded records the number of bytes in a trunk downloaded.
 func (m *TunnelMonitor) IncBytesDownloaded(n uint32) {
-	m.appMonitor.transferMeter.incDownloaded(n)
-	m.transferMeter.incDownloaded(n)
+	m.appMonitor.transferMeter.IncDownloaded(n)
+	m.transferMeter.IncDownloaded(n)
 }
 
 // ForceKillTunnel forcely kill the tunnel.
@@ -262,9 +262,9 @@ func (m *TunnelMonitor) Report() (report TunnelMonitorReport) {
 	report.ServerIDs = m.serverIDs
 	report.BoundAddr = m.boundAddr
 	report.ConnLatencyMs = m.transferMeter.emaConnLatencyMs
-	report.UploadSpeed, report.DownloadSpeed = m.transferMeter.speed()
+	report.UploadSpeed, report.DownloadSpeed = m.transferMeter.Speed()
 	report.BytesUploaded, report.BytesDownloaded =
-		m.transferMeter.bytesTransferred()
+		m.transferMeter.BytesTransferred()
 	return
 }
 
@@ -328,18 +328,23 @@ type transferMeter struct {
 	lastPushGapNs int64
 	// last time we pushed bytesXxx to bytesXxxHistory
 	lastPushTime time.Time
+	// This mutex is to protect some states that cannot be easily protected
+	// via atomic operations. Currently it is protecting emaConnLatencyMs.
+	mtx SpinMutex
 }
 
-func (m *transferMeter) incUploaded(n uint32) {
+func (m *transferMeter) IncUploaded(n uint32) {
 	atomic.AddUint64(&m.bytesUploaded, uint64(n))
 }
 
-func (m *transferMeter) incDownloaded(n uint32) {
+func (m *transferMeter) IncDownloaded(n uint32) {
 	atomic.AddUint64(&m.bytesDownloaded, uint64(n))
 }
 
-func (m *transferMeter) addConnLatency(connLatency time.Duration) {
+func (m *transferMeter) AddConnLatency(connLatency time.Duration) {
 	latMs := float32(connLatency.Seconds() * 1e3)
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 	if m.emaConnLatencyMs == 0.0 {
 		m.emaConnLatencyMs = latMs
 	} else {
@@ -348,13 +353,13 @@ func (m *transferMeter) addConnLatency(connLatency time.Duration) {
 	}
 }
 
-func (m *transferMeter) addError() {
-	m.errorCount++
+func (m *transferMeter) AddError() {
+	atomic.AddUint32(&m.errorCount, 1)
 }
 
-// pushHistory records the current transfered statistics.
+// PushHistory records the current transfered statistics.
 // It cannot be called concurrently.
-func (m *transferMeter) pushHistory() {
+func (m *transferMeter) PushHistory() {
 	bytesUploaded := uint32(atomic.LoadUint64(&m.bytesUploaded))
 	bytesDownloaded := uint32(atomic.LoadUint64(&m.bytesDownloaded))
 	now := time.Now()
@@ -373,14 +378,14 @@ func (m *transferMeter) pushHistory() {
 	m.lastPushTime = now
 }
 
-func (m *transferMeter) bytesTransferred() (up uint64, down uint64) {
+func (m *transferMeter) BytesTransferred() (up uint64, down uint64) {
 	up = atomic.LoadUint64(&m.bytesUploaded)
 	down = atomic.LoadUint64(&m.bytesDownloaded)
 	return
 }
 
 // speed calculates the number of bytes transfered per second.
-func (m *transferMeter) speed() (uploadSpeed float32, downloadSpeed float32) {
+func (m *transferMeter) Speed() (uploadSpeed float32, downloadSpeed float32) {
 	lastPushGapNs := atomic.LoadInt64(&m.lastPushGapNs)
 	bytesUploadedHistory := atomic.LoadUint64(&m.bytesUploadedHistory)
 	bytesDownloadedHistory := atomic.LoadUint64(&m.bytesDownloadedHistory)

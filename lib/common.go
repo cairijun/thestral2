@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -192,4 +193,26 @@ func BytesHumanized(bytes uint64) string {
 		format, number = "%.2f TiB", number/(1024*1024*1024*1024)
 	}
 	return fmt.Sprintf(format, number)
+}
+
+// SpinMutex is a spin mutex as its name suggests.
+type SpinMutex struct {
+	locked uint32
+}
+
+// Lock the spin mutex. Recursive locking is not allowed.
+func (m *SpinMutex) Lock() {
+	for {
+		if atomic.CompareAndSwapUint32(&m.locked, 0, 1) {
+			break
+		}
+		runtime.Gosched()
+	}
+}
+
+// Unlock the spin mutex.
+func (m *SpinMutex) Unlock() {
+	if !atomic.CompareAndSwapUint32(&m.locked, 1, 0) {
+		panic("the spin mutex is not locked")
+	}
 }
