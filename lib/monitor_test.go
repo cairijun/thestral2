@@ -50,7 +50,7 @@ func TestMonitor(t *testing.T) {
 				select {
 				case <-stopCh:
 					return
-				case _ = <-tickers[i].C:
+				case <-tickers[i].C:
 					tunnelMonitor.IncBytesUploaded(
 						uint32(baseUploadPerBlock * (i + 1)))
 					tunnelMonitor.IncBytesDownloaded(
@@ -65,7 +65,7 @@ func TestMonitor(t *testing.T) {
 	var readerWg sync.WaitGroup
 	for i := 0; i < numberReaders; i++ {
 		readerWg.Add(1)
-		go func(i int) {
+		go func() {
 			defer readerWg.Done()
 			for j := 0; j < readRepeat; j++ {
 				report := monitor.Report()
@@ -116,7 +116,7 @@ func TestMonitor(t *testing.T) {
 				require.InEpsilon(totalDownloadSpeed, report.DownloadSpeed, 0.1)
 				time.Sleep(readInterval)
 			}
-		}(i)
+		}()
 	}
 	readerWg.Wait()
 	for i := 0; i < numberTunnels; i++ {

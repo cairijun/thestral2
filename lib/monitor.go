@@ -62,7 +62,7 @@ func (m *AppMonitor) Start(path string) {
 			path = "/" + path
 		}
 		if path[len(path)-1] != '/' {
-			path = path + "/"
+			path += "/"
 		}
 	}
 	m.registerRPCHandlers(path)
@@ -115,10 +115,11 @@ func (m *AppMonitor) registerRPCHandlers(path string) {
 func (m *AppMonitor) getUpstreamMonitor(upstream string) (um *UpstreamMonitor) {
 	if value, ok := m.upstreamMonitors.Load(upstream); ok {
 		um = value.(*UpstreamMonitor)
+	} else {
+		value, _ := m.upstreamMonitors.LoadOrStore(
+			upstream, &UpstreamMonitor{name: upstream})
+		um = value.(*UpstreamMonitor)
 	}
-	value, _ := m.upstreamMonitors.LoadOrStore(
-		upstream, &UpstreamMonitor{name: upstream})
-	um = value.(*UpstreamMonitor)
 	return
 }
 
@@ -333,11 +334,13 @@ func (r TunnelMonitorReport) Format(f fmt.State, c rune) {
 		BytesHumanized(r.BytesDownloaded))
 }
 
+// UpstreamMonitor records statistics of an upstream.
 type UpstreamMonitor struct {
 	name          string
 	transferMeter transferMeter
 }
 
+// UpstreamMonitorReport is the report of an UpstreamMonitor.
 type UpstreamMonitorReport struct {
 	Name             string
 	AvgConnLatencyMs float32
@@ -348,6 +351,7 @@ type UpstreamMonitorReport struct {
 	BytesDownloaded  uint64
 }
 
+// Report generates a report for the UpstreamMonitor.
 func (m *UpstreamMonitor) Report() (report UpstreamMonitorReport) {
 	report.Name = m.name
 	report.AvgConnLatencyMs = m.transferMeter.emaConnLatencyMs
@@ -412,7 +416,7 @@ func (m *transferMeter) AddError() {
 	atomic.AddUint32(&m.errorCount, 1)
 }
 
-// PushHistory records the current transfered statistics.
+// PushHistory records the current transferred statistics.
 // It cannot be called concurrently.
 func (m *transferMeter) PushHistory() {
 	bytesUploaded := uint32(atomic.LoadUint64(&m.bytesUploaded))
@@ -439,7 +443,7 @@ func (m *transferMeter) BytesTransferred() (up uint64, down uint64) {
 	return
 }
 
-// speed calculates the number of bytes transfered per second.
+// speed calculates the number of bytes transferred per second.
 func (m *transferMeter) Speed() (uploadSpeed float32, downloadSpeed float32) {
 	lastPushGapNs := atomic.LoadInt64(&m.lastPushGapNs)
 	bytesUploadedHistory := atomic.LoadUint64(&m.bytesUploadedHistory)

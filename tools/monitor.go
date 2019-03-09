@@ -103,7 +103,7 @@ func (t *monitorTool) ls(term *terminal.Terminal, args []string) bool {
 	upstreamTunnelCount := make(map[string]int)
 	for i, r := range report.Tunnels {
 		t.lastListedReqIDs[i] = r.RequestID
-		upstreamTunnelCount[r.Upstream] = upstreamTunnelCount[r.Upstream] + 1
+		upstreamTunnelCount[r.Upstream] += upstreamTunnelCount[r.Upstream]
 		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s/s\t%s/s\t%s\t\n",
 			i, r.RequestID, r.ClientAddr, r.TargetAddr, r.Upstream,
 			lib.BytesHumanized(uint64(r.UploadSpeed)),
@@ -216,7 +216,7 @@ func (t *monitorTool) request(
 	defer resp.Body.Close() // nolint: errcheck
 	if resp.StatusCode != http.StatusOK {
 		body, _ := ioutil.ReadAll(resp.Body)
-		return fmt.Errorf("Request status %s: %s", resp.Status, string(body))
+		return fmt.Errorf("request status %s: %s", resp.Status, string(body))
 	}
 	if optPtrResp != nil {
 		decoder := json.NewDecoder(resp.Body)
