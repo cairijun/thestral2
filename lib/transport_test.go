@@ -49,24 +49,30 @@ func TestTransport(t *testing.T) {
 	for _, compMethod := range []string{"", "snappy", "deflate"} {
 		for _, tls := range []bool{false, true} {
 			for _, kcp := range []bool{false, true} {
-				name := fmt.Sprintf(
-					"compMethod-%s/tls-%v/kcp-%v", compMethod, tls, kcp)
-				t.Run(name, func(t *testing.T) {
-					svrConfig := &TransportConfig{Compression: compMethod}
-					cliConfig := &TransportConfig{Compression: compMethod}
+				for _, preConn := range []bool{false, true} {
+					name := fmt.Sprintf(
+						"compMethod-%s/tls-%v/kcp-%v/preConn-%v",
+						compMethod, tls, kcp, preConn)
+					t.Run(name, func(t *testing.T) {
+						svrConfig := &TransportConfig{Compression: compMethod}
+						cliConfig := &TransportConfig{Compression: compMethod}
+						if preConn {
+							cliConfig.PreConn = &PreConnConfig{}
+						}
 
-					if tls {
-						svrConfig.TLS = gTLSServerConfig
-						cliConfig.TLS = gTLSClientConfig
-					}
+						if tls {
+							svrConfig.TLS = gTLSServerConfig
+							cliConfig.TLS = gTLSClientConfig
+						}
 
-					if kcp {
-						svrConfig.KCP = gKCPServerConfig
-						cliConfig.KCP = gKCPClientConfig
-					}
+						if kcp {
+							svrConfig.KCP = gKCPServerConfig
+							cliConfig.KCP = gKCPClientConfig
+						}
 
-					doTestWithTransConf(t, svrConfig, cliConfig)
-				})
+						doTestWithTransConf(t, svrConfig, cliConfig)
+					})
+				}
 			}
 		}
 	}
@@ -134,7 +140,6 @@ func runEchoServer(
 	defer wg.Done()
 	clientProc := func(client net.Conn) {
 		defer client.Close() // nolint: errcheck
-		defer wg.Done()
 		var buf [1024 * 32]byte
 		for {
 			n, err := client.Read(buf[:])
@@ -158,7 +163,6 @@ func runEchoServer(
 		default:
 		}
 		if assert.NoError(t, err) {
-			wg.Add(1)
 			go clientProc(conn)
 		}
 	}

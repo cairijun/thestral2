@@ -34,10 +34,11 @@ type ProxyConfig struct {
 
 // TransportConfig describes a transport layer.
 type TransportConfig struct {
-	Compression string       `yaml:"compression"`
-	TLS         *TLSConfig   `yaml:"tls"`
-	KCP         *KCPConfig   `yaml:"kcp"`
-	Proxied     *ProxyConfig `yaml:"proxied"`
+	Compression string         `yaml:"compression"`
+	TLS         *TLSConfig     `yaml:"tls"`
+	KCP         *KCPConfig     `yaml:"kcp"`
+	Proxied     *ProxyConfig   `yaml:"proxied"`
+	PreConn     *PreConnConfig `yaml:"pre_conn"`
 }
 
 // TLSConfig contains the TLS configuration on some transport.
@@ -60,6 +61,12 @@ type KCPConfig struct {
 	FECDist           string `yaml:"fec_dist"`
 	KeepAliveInterval string `yaml:"keep_alive_interval"`
 	KeepAliveTimeout  string `yaml:"keep_alive_timeout"`
+}
+
+// PreConnConfig contains configuration for pre-connect transport wrapper.
+type PreConnConfig struct {
+	MaxPoolSize int    `yaml:"max_pool_size"`
+	Lifetime    string `yaml:"lifetime"`
 }
 
 // RuleConfig describes how to dispatch proxy requests.

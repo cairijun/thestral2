@@ -65,6 +65,9 @@ func (s *E2ETestSuite) SetupSuite() {
 					Mode: "fast2", Optimize: "receive", FEC: true,
 					KeepAliveInterval: "1s", KeepAliveTimeout: "3s",
 				},
+				PreConn: &PreConnConfig{
+					Lifetime: "1s",
+				},
 			},
 			Settings: map[string]interface{}{"address": s.svrAddr, "simplified": true},
 		}},
@@ -231,7 +234,7 @@ func (s *E2ETestSuite) TestWrongUserPass() {
 }
 
 func (s *E2ETestSuite) TestRejectByRule() {
-	addr := &DomainNameAddr{"will.be.rejected", 12345}
+	addr := &DomainNameAddr{DomainName: "will.be.rejected", Port: 12345}
 	_, _, pErr := s.cli.Request(context.Background(), addr)
 	s.Require().NotNil(pErr)
 	s.Assert().EqualValues(ProxyNotAllowed, pErr.ErrType)
@@ -239,7 +242,7 @@ func (s *E2ETestSuite) TestRejectByRule() {
 }
 
 func (s *E2ETestSuite) TestConnectFailed() {
-	addr := &DomainNameAddr{"does.not.exist", 80}
+	addr := &DomainNameAddr{DomainName: "does.not.exist", Port: 80}
 	_, _, pErr := s.cli.Request(context.Background(), addr)
 	s.Require().NotNil(pErr)
 	s.Assert().EqualValues(ProxyConnectFailed, pErr.ErrType)

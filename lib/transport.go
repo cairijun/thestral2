@@ -75,9 +75,12 @@ func CreateTransport(
 		transport, err = NewTLSTransport(*config.TLS, transport)
 	}
 
-	// compression should be the outer most layer
+	// compression & pre_conn should be the outer most layer
 	if err == nil && config.Compression != "" {
 		transport, err = WrapTransCompression(transport, config.Compression)
+	}
+	if err == nil && config.PreConn != nil {
+		transport, err = WrapAsPreConnTransport(transport, *config.PreConn)
 	}
 
 	err = errors.WithMessage(err, "failed to create transport")
