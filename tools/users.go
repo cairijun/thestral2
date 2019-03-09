@@ -40,7 +40,7 @@ func (t *usersTool) Run(args []string) {
 	dsn := fs.String("dsn", "", "database source. Must be used with -driver.")
 
 	var dbConfig db.Config
-	fs.Parse(args)
+	_ = fs.Parse(args)
 	if (*driver == "") != (*dsn == "") {
 		panic("-driver must be used with -dsn")
 	} else if *driver != "" {

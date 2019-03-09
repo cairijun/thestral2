@@ -58,7 +58,7 @@ func WrapAsPreConnTransport(
 	}
 	go func() {
 		ticker := time.Tick(epochInterval)
-		for _ = range ticker {
+		for range ticker {
 			w.preConnMgrs.Range(func(_ interface{}, value interface{}) bool {
 				value.(*preConnMgr).Epoch(w.preConnLifetime)
 				return true

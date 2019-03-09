@@ -9,9 +9,9 @@ import (
 )
 
 var domainRules = map[string][]string{
-	"r1": []string{`some\.domain.name`, `yyy\.xxx`},
-	"r2": []string{`.*\.domain`},
-	"r3": []string{`some(\.other)?\.(cn|com)`},
+	"r1": {`some\.domain.name`, `yyy\.xxx`},
+	"r2": {`.*\.domain`},
+	"r3": {`some(\.other)?\.(cn|com)`},
 }
 
 var domainQueries = [][2]string{
@@ -26,12 +26,12 @@ var domainQueries = [][2]string{
 }
 
 var ipRules = map[string][]string{
-	"r1": []string{"192.168.0.0/16"},
-	"r2": []string{"192.168.0.0/24"},
-	"r3": []string{"192.168.1.1", "192.168.2.0/24"},
-	"r4": []string{"2001:db8::/48"},
-	"r5": []string{"c0a8::/16"},
-	"r6": []string{"::1", "0::abcd:1"},
+	"r1": {"192.168.0.0/16"},
+	"r2": {"192.168.0.0/24"},
+	"r3": {"192.168.1.1", "192.168.2.0/24"},
+	"r4": {"2001:db8::/48"},
+	"r5": {"c0a8::/16"},
+	"r6": {"::1", "0::abcd:1"},
 }
 
 var ipQueries = [][2]string{

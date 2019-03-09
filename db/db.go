@@ -9,7 +9,8 @@ var (
 	// EnabledDrivers is the names of the supported database drivers.
 	EnabledDrivers []string
 	// Inited indicates whether the database was initialized
-	Inited   bool = false
+	Inited = false
+
 	dbConfig *Config
 )
 

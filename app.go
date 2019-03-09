@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"math/rand"
-	"runtime"
 	"sync"
 	"time"
 
@@ -17,10 +16,6 @@ import (
 const (
 	defaultConnectTimeout = time.Minute * 1
 	relayBufferSize       = 32 * 1024
-	enableReadFrom        = runtime.GOOS != "darwin" &&
-		runtime.GOOS != "nacl" &&
-		runtime.GOOS != "netbsd" &&
-		runtime.GOOS != "openbsd"
 )
 
 // Thestral is the main thestral app.
@@ -191,7 +186,7 @@ func (t *Thestral) processOneRequest(
 		ruleName, upstreams = t.ruleMatcher.MatchDomain(addr.DomainName)
 	default:
 		req.Logger().Errorw("unknown target address", "addr", addr)
-		req.Fail(&ProxyError{nil, ProxyAddrUnsupported})
+		req.Fail(&ProxyError{Error: nil, ErrType: ProxyAddrUnsupported})
 		return
 	}
 
@@ -202,7 +197,7 @@ func (t *Thestral) processOneRequest(
 		req.Logger().Errorw(
 			"request rejected by rule",
 			"rule", ruleName, "addr", req.TargetAddr())
-		req.Fail(&ProxyError{nil, ProxyNotAllowed})
+		req.Fail(&ProxyError{Error: nil, ErrType: ProxyNotAllowed})
 		return
 	}
 	//TODO: the selection is not actually uniform, fix it
@@ -248,7 +243,7 @@ func (t *Thestral) doRelay(
 	tunnelMonitor *TunnelMonitor, req ProxyRequest,
 	downRWC io.ReadWriteCloser, upRWC io.ReadWriteCloser) {
 	defer tunnelMonitor.Close()
-	relay := func(dst, src io.ReadWriteCloser, dstName, srcName string,
+	relay := func(dst, src io.ReadWriteCloser, srcName string,
 		reportBytesTransfered func(uint32)) {
 		defer cancelFunc()
 		var n int64
@@ -267,10 +262,8 @@ func (t *Thestral) doRelay(
 		}
 	}
 
-	go relay(upRWC, downRWC, "upstream", "downstream",
-		tunnelMonitor.IncBytesUploaded)
-	go relay(downRWC, upRWC, "downstream", "upstream",
-		tunnelMonitor.IncBytesDownloaded)
+	go relay(upRWC, downRWC, "downstream", tunnelMonitor.IncBytesUploaded)
+	go relay(downRWC, upRWC, "upstream", tunnelMonitor.IncBytesDownloaded)
 
 	<-relayCtx.Done() // block until done/canceled
 	if err := upRWC.Close(); err != nil {

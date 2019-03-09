@@ -37,7 +37,7 @@ func (w *compTransWrapper) Dial(
 func (w *compTransWrapper) Listen(address string) (net.Listener, error) {
 	listener, err := w.inner.Listen(address)
 	if err == nil {
-		listener, err = compWrapListener(listener, w.method)
+		listener = &compListenerWrapper{Listener: listener, method: w.method}
 	}
 	return listener, err
 }
@@ -103,11 +103,6 @@ func (w *compConnWrapper) Close() (err error) {
 type compListenerWrapper struct {
 	net.Listener
 	method string
-}
-
-func compWrapListener(
-	inner net.Listener, method string) (*compListenerWrapper, error) {
-	return &compListenerWrapper{inner, method}, nil
 }
 
 func (w *compListenerWrapper) Accept() (net.Conn, error) {

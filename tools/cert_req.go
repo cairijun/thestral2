@@ -31,7 +31,7 @@ func (c certReqTools) Run(args []string) {
 	fs := flag.NewFlagSet("cert_req", flag.ExitOnError)
 	out := fs.String("out", ".", "directory to store the output files")
 	bits := fs.Int("bits", 2048, "number of bits of the generated RSA keypair")
-	fs.Parse(args)
+	_ = fs.Parse(args)
 	if *out == "" {
 		fs.Usage()
 	} else if s, err := os.Stat(*out); err != nil {

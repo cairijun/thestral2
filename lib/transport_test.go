@@ -331,7 +331,7 @@ func (s *KCPKeepAliveTestSuite) TestSendBlock() {
 			cli, err := s.cliTrans.Dial(context.Background(), addr)
 			s.Require().NoError(err)
 			defer cli.Close() // nolint: errcheck
-			// send untill block, then wait until timeout
+			// send until block, then wait until timeout
 			for ; err == nil; _, err = cli.Write([]byte("hello")) {
 			}
 		}()

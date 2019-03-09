@@ -21,9 +21,11 @@ func TestMonitor(t *testing.T) {
 	const numberTunnels = 100
 	const numberReaders = 10
 	const readRepeat = 10
-	const readInterval = 300 * time.Millisecond
+	const readInterval = 400 * time.Millisecond
 
+	oldMonitorUpdateInterval := monitorUpdateInterval
 	monitorUpdateInterval = 200 * time.Millisecond
+	defer func() { monitorUpdateInterval = oldMonitorUpdateInterval }()
 
 	var tunnelWg sync.WaitGroup
 	var tunnelStartWg sync.WaitGroup
