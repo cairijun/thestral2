@@ -103,7 +103,7 @@ func (t *monitorTool) ls(term *terminal.Terminal, args []string) bool {
 	upstreamTunnelCount := make(map[string]int)
 	for i, r := range report.Tunnels {
 		t.lastListedReqIDs[i] = r.RequestID
-		upstreamTunnelCount[r.Upstream] += upstreamTunnelCount[r.Upstream]
+		upstreamTunnelCount[r.Upstream]++
 		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s/s\t%s/s\t%s\t\n",
 			i, r.RequestID, r.ClientAddr, r.TargetAddr, r.Upstream,
 			lib.BytesHumanized(uint64(r.UploadSpeed)),
