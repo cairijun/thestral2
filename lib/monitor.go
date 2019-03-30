@@ -151,6 +151,10 @@ func (m *AppMonitor) updateEpoch() {
 		value.(*TunnelMonitor).updateEpoch()
 		return true
 	})
+	m.upstreamMonitors.Range(func(key interface{}, value interface{}) bool {
+		value.(*UpstreamMonitor).updateEpoch()
+		return true
+	})
 }
 
 // Report generates a AppMonitorReport.
@@ -360,6 +364,10 @@ func (m *UpstreamMonitor) Report() (report UpstreamMonitorReport) {
 	report.BytesUploaded, report.BytesDownloaded =
 		m.transferMeter.BytesTransferred()
 	return
+}
+
+func (m *UpstreamMonitor) updateEpoch() {
+	m.transferMeter.PushHistory()
 }
 
 func printPeerID(w io.Writer, indent string, i *PeerIdentifier) {

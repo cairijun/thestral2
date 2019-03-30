@@ -3,6 +3,7 @@ package lib
 import (
 	"fmt"
 	"io"
+	"sort"
 	"strconv"
 	"sync"
 	"testing"
@@ -18,7 +19,7 @@ func TestMonitor(t *testing.T) {
 	const transferInterval = 15 * time.Millisecond
 	const baseUploadPerBlock = 123
 	const baseDownloadPerBlock = 321
-	const numberTunnels = 100
+	const numberTunnels = 30
 	const numberReaders = 10
 	const readRepeat = 10
 	const readInterval = 400 * time.Millisecond
@@ -72,33 +73,44 @@ func TestMonitor(t *testing.T) {
 			for j := 0; j < readRepeat; j++ {
 				report := monitor.Report()
 				require.Len(report.Tunnels, numberTunnels)
+				require.Len(report.Upstreams, numberTunnels)
+				sort.Slice(report.Tunnels, func(i, j int) bool {
+					return report.Tunnels[i].RequestID < report.Tunnels[j].RequestID
+				})
+				sort.Slice(report.Upstreams, func(i, j int) bool {
+					return report.Upstreams[i].Name < report.Upstreams[j].Name
+				})
 				lastUploaded := make([]uint64, numberTunnels)
 				lastDownloaded := make([]uint64, numberTunnels)
 				var totalUploadSpeed float32
 				var totalDownloadSpeed float32
 				for k := 0; k < numberTunnels; k++ {
 					r := report.Tunnels[k]
+					ur := report.Upstreams[k]
 					idx, err := strconv.Atoi(r.RequestID)
 					require.NoError(err)
 					name := func(pfx string) string {
 						return pfx + strconv.Itoa(idx)
 					}
-					require.Equal(name(""), r.RequestID)
 					require.Equal(name("Rule"), r.Rule)
 					require.Equal(name("Downstream"), r.Downstream)
 					require.Empty(r.ClientIDs)
 					require.Equal(name("ClientAddr"), r.ClientAddr)
 					require.Equal(name("target.addr:"), r.TargetAddr)
 					require.Equal(name("Upstream"), r.Upstream)
+					require.Equal(name("Upstream"), ur.Name)
 					require.Empty(r.ServerIDs)
 					require.Equal(name("BoundAddr"), r.BoundAddr)
 					require.Equal(float32(idx), r.ConnLatencyMs)
+					require.Equal(float32(idx), ur.AvgConnLatencyMs)
 					expUploadSpeed := float32(idx+1) * baseUploadPerBlock *
 						float32(time.Second) / float32(transferInterval)
 					expDownloadSpeed := float32(idx+1) * baseDownloadPerBlock *
 						float32(time.Second) / float32(transferInterval)
 					require.InEpsilon(expUploadSpeed, r.UploadSpeed, 0.1)
+					require.InEpsilon(expUploadSpeed, ur.UploadSpeed, 0.1)
 					require.InEpsilon(expDownloadSpeed, r.DownloadSpeed, 0.1)
+					require.InEpsilon(expDownloadSpeed, ur.DownloadSpeed, 0.1)
 					totalUploadSpeed += r.UploadSpeed
 					totalDownloadSpeed += r.DownloadSpeed
 					if lastUploaded[idx] != 0 {
